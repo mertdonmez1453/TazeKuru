@@ -32,7 +32,7 @@ function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Ev Yemekleri</h1>
+      <h1>Taze Kuru</h1>
       <ul>
         {yemekler.map((yemek) => (
           <li key={yemek.id}>
