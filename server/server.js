@@ -39,34 +39,57 @@ app.listen(8081, () => {
 
 // KULLANICI KAYIT (SIGNUP)
 app.post("/api/signup", (req, res) => {
-  const { ad, email, sifre } = req.body;
+  const {
+    username,
+    password,
+    first_name,
+    last_name,
+    phone_number,
+    email,
+    registration_date,
+    rating,
+    loyalty_points
+  } = req.body;
 
-  if (!ad || !email || !sifre) {
+  if (!username || !password || !email) {
     return res.status(400).json({ error: "Eksik bilgi gönderildi." });
   }
 
-  const sql = "INSERT INTO users (ad, email, sifre) VALUES (?, ?, ?)";
-  db.query(sql, [ad, email, sifre], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    return res.json({ message: "Kullanıcı başarıyla kayıt edildi." });
-  });
+  const sql = `
+    INSERT INTO users 
+    (username, password, first_name, last_name, phone_number, email, registration_date, rating, loyalty_points)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    sql,
+    [username, password, first_name, last_name, phone_number, email, registration_date, rating, loyalty_points],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).json({ error: "Veritabanı hatası." });
+      }
+      return res.json({ message: "Kullanıcı başarıyla kayıt edildi." });
+    }
+  );
 });
+
 
 // KULLANICI GİRİŞ (LOGIN)
 app.post("/api/login", (req, res) => {
-  const { email, sifre } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !sifre) {
+  if (!username || !password) {
     return res.status(400).json({ error: "Eksik bilgi gönderildi." });
   }
 
-  const sql = "SELECT * FROM users WHERE email = ? AND sifre = ?";
-  db.query(sql, [email, sifre], (err, data) => {
+  const sql = "SELECT * FROM users WHERE username = ? AND password = ?";
+  db.query(sql, [username, password], (err, data) => {
     if (err) return res.status(500).json({ error: err });
     if (data.length > 0) {
       return res.json({ message: "Giriş başarılı", user: data[0] });
     } else {
-      return res.status(401).json({ message: "Email veya şifre hatalı" });
+      return res.status(401).json({ message: "username veya şifre hatalı" });
     }
   });
 });
