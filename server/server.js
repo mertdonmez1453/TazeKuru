@@ -7,20 +7,33 @@ app.use(cors());
 app.use(express.json());
 
 // MySQL bağlantısı
+// Port numarasını environment variable'dan al, yoksa varsayılan olarak 3306 kullan
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",       // kendi kullanıcı adını yaz
-  password: "qqqqqqq",       // şifren varsa yaz
-  database: "tazekuru_db",
-  port: 3006
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",       // kendi kullanıcı adını yaz
+  password: process.env.DB_PASSWORD || "root",       // şifren varsa yaz
+  database: process.env.DB_NAME || "tazekuru_db",
+  port: process.env.DB_PORT || 3306  // MySQL varsayılan portu (3006 yerine 3306)
 });
 
 // Test bağlantısı
 db.connect((err) => {
   if (err) {
-    console.log("MySQL bağlantı hatası:", err);
+    console.log("MySQL bağlantı hatası:", err.message);
+    console.log("Lütfen MySQL'in çalıştığından ve port ayarlarının doğru olduğundan emin olun.");
+    console.log("Eğer MySQL farklı bir portta çalışıyorsa, server.js dosyasındaki port numarasını güncelleyin.");
   } else {
     console.log("MySQL'e başarıyla bağlandı!");
+  }
+});
+
+// Bağlantı hatası durumunda yeniden bağlanmayı dene
+db.on('error', (err) => {
+  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+    console.log('MySQL bağlantısı kesildi. Yeniden bağlanılıyor...');
+    db.connect();
+  } else {
+    throw err;
   }
 });
 
