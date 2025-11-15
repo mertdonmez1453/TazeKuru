@@ -19,11 +19,6 @@ function HomePage() {
       <div style={{ flex: 1, padding: "20px" }}>
         <h1 style={{ textAlign: "center" }}>Taze Kuru</h1>
         <ul style={{ listStyleType: "none", padding: 0 }}>
-          {yemekler.map((yemek) => (
-            <li key={yemek.id} style={{ marginBottom: "10px" }}>
-              <b>{yemek.ad}</b> - {yemek.aciklama} ({yemek.fiyat} ₺)
-            </li>
-          ))}
         </ul>
       </div>
 
@@ -69,10 +64,22 @@ function HomePage() {
           onClick={() => navigate("/yet-another-page")}
           style={{
             padding: "10px 20px",
+            marginBottom: "20px",
             cursor: "pointer",
           }}
         >
           Diğer Sayfa
+        </button>
+
+        <button
+          onClick={() => navigate("/SellFood")}
+          style={{
+            padding: "10px 20px",
+            marginBottom: "20px",
+            cursor: "pointer",
+          }}
+        >
+          Yemek Sat
         </button>
       </div>
     </div>
