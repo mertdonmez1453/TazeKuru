@@ -10,7 +10,7 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",       // kendi kullanıcı adını yaz
-  password: "selAm07rst+",       // şifren varsa yaz
+  password: "",       // şifren varsa yaz
   database: "tazekuru_db",
   port: 3306
 });
