@@ -48,6 +48,28 @@ app.get("/api/yemekler", (req, res) => {
   });
 });
 
+app.get("/api/product/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    "SELECT * FROM product WHERE product_id = ?",
+    [id],
+    (err, product) => {
+      if (err) return res.status(500).json({ error: "Veritabanı hatası", details: err });
+      if (!product.length) return res.status(404).json({ error: "Ürün bulunamadı" });
+
+      db.query(
+        "SELECT first_name, last_name FROM users WHERE user_id = ?",
+        [product[0].seller_id],
+        (err2, seller) => {
+          if (err2) return res.json({ product: product[0], seller: null });
+          
+          res.json({ product: product[0], seller: seller[0] });
+        }
+      );
+    }
+  );
+});
 
 app.post("/api/signup", (req, res) => {
   const {
@@ -157,7 +179,6 @@ app.post("/api/add-product", (req, res) => {
     res.json({ message: "Yemek başarıyla eklendi!" });
   });
 });
-
 
 
 app.post("/api/save-address", (req, res) => {
