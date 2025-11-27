@@ -87,20 +87,47 @@ app.post("/api/login", (req, res) => {
   });
 });
 
-// Örnek: frontend header'dan MySQL user_id gönderiyor
 app.get("/api/get-current-user", (req, res) => {
-  const userId = req.headers["user-id"]; // INT id
+  const userId = req.headers["user-id"];
 
-  if (!userId) {
-    return res.status(400).json({ error: "Kullanıcı ID gönderilmedi." });
-  }
+  const sql = `
+    SELECT user_id, username, email, first_name, last_name, phone_number, rating, loyalty_points
+    FROM users WHERE user_id = ?
+  `;
 
-  const sql = "SELECT user_id, username, email FROM users WHERE user_id = ?";
   db.query(sql, [userId], (err, data) => {
-    if (err) return res.status(500).json({ error: "DB hatası", details: err });
-    if (data.length === 0) return res.status(404).json({ error: "Kullanıcı bulunamadı." });
+    if (err) return res.status(500).json(err);
+    if (data.length === 0) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
 
-    return res.json({ user_id: data[0].user_id, user: data[0] });
+    return res.json({ user: data[0] });
+  });
+});
+
+//------------------------------------------------------------------
+// 2) UPDATE USER  (PROFİL GÜNCELLEME)
+//------------------------------------------------------------------
+app.put("/api/update-user", (req, res) => {
+  const { user_id, first_name, last_name, phone_number, email } = req.body;
+
+  const sql = `
+      UPDATE users SET
+      first_name = ?, last_name = ?, phone_number = ?, email = ?
+      WHERE user_id = ?
+  `;
+
+  db.query(sql, [first_name, last_name, phone_number, email, user_id], err => {
+    if (err) return res.status(500).json(err);
+
+    const fetchSql = `SELECT user_id, username, email, first_name, last_name, phone_number, rating, loyalty_points FROM users WHERE user_id=?`;
+
+    db.query(fetchSql, [user_id], (err2, data) => {
+      if (err2) return res.status(500).json(err2);
+
+      res.json({
+        message: "Profil başarıyla güncellendi ✔",
+        user: data[0]
+      });
+    });
   });
 });
 
