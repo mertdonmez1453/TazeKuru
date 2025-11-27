@@ -6,51 +6,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MySQL bağlantısı
-// Port numarasını environment variable'dan al, yoksa varsayılan olarak 3306 kullan
+// ----------------- MySQL Bağlantısı -----------------
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",       // kendi kullanıcı adını yaz
-  password: process.env.DB_PASSWORD || "root",       // şifren varsa yaz
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "qqqqqqq",
   database: process.env.DB_NAME || "tazekuru_db",
-  port: process.env.DB_PORT || 3306  // MySQL varsayılan portu (3006 yerine 3306)
+  port: process.env.DB_PORT || 3006
 });
 
-// Test bağlantısı
 db.connect((err) => {
   if (err) {
     console.log("MySQL bağlantı hatası:", err.message);
-    console.log("Lütfen MySQL'in çalıştığından ve port ayarlarının doğru olduğundan emin olun.");
-    console.log("Eğer MySQL farklı bir portta çalışıyorsa, server.js dosyasındaki port numarasını güncelleyin.");
   } else {
     console.log("MySQL'e başarıyla bağlandı!");
   }
 });
 
-// Bağlantı hatası durumunda yeniden bağlanmayı dene
-db.on('error', (err) => {
-  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-    console.log('MySQL bağlantısı kesildi. Yeniden bağlanılıyor...');
+db.on("error", (err) => {
+  if (err.code === "PROTOCOL_CONNECTION_LOST") {
+    console.log("MySQL bağlantısı kesildi. Yeniden bağlanılıyor...");
     db.connect();
   } else {
     throw err;
   }
 });
 
-// Basit örnek endpoint
+// ----------------- API ENDPOINTLER -----------------
+
 app.get("/api/yemekler", (req, res) => {
   const sql = "SELECT * FROM yemekler";
   db.query(sql, (err, data) => {
-    if (err) return res.json(err);
+    if (err) return res.status(500).json({ error: err });
     return res.json(data);
   });
 });
 
-app.listen(8081, () => {
-  console.log("Server 8081 portunda çalışıyor...");
-});
-
-// KULLANICI KAYIT (SIGNUP)
 app.post("/api/signup", (req, res) => {
   const {
     username,
@@ -64,9 +55,8 @@ app.post("/api/signup", (req, res) => {
     loyalty_points
   } = req.body;
 
-  if (!username || !password || !email) {
+  if (!username || !password || !email)
     return res.status(400).json({ error: "Eksik bilgi gönderildi." });
-  }
 
   const sql = `
     INSERT INTO users 
@@ -74,27 +64,17 @@ app.post("/api/signup", (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(
-    sql,
-    [username, password, first_name, last_name, phone_number, email, registration_date, rating, loyalty_points],
-    (err, result) => {
-      if (err) {
-        console.log(err);
-        return res.status(500).json({ error: "Veritabanı hatası." });
-      }
-      return res.json({ message: "Kullanıcı başarıyla kayıt edildi." });
-    }
-  );
+  db.query(sql, [username, password, first_name, last_name, phone_number, email, registration_date, rating, loyalty_points], (err) => {
+    if (err) return res.status(500).json({ error: "Veritabanı hatası.", details: err });
+    return res.json({ message: "Kullanıcı başarıyla kayıt edildi." });
+  });
 });
 
-
-// KULLANICI GİRİŞ (LOGIN)
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
+  if (!username || !password)
     return res.status(400).json({ error: "Eksik bilgi gönderildi." });
-  }
 
   const sql = "SELECT * FROM users WHERE username = ? AND password = ?";
   db.query(sql, [username, password], (err, data) => {
@@ -105,4 +85,40 @@ app.post("/api/login", (req, res) => {
       return res.status(401).json({ message: "username veya şifre hatalı" });
     }
   });
+});
+
+// Örnek: frontend header'dan MySQL user_id gönderiyor
+app.get("/api/get-current-user", (req, res) => {
+  const userId = req.headers["user-id"]; // INT id
+
+  if (!userId) {
+    return res.status(400).json({ error: "Kullanıcı ID gönderilmedi." });
+  }
+
+  const sql = "SELECT user_id, username, email FROM users WHERE user_id = ?";
+  db.query(sql, [userId], (err, data) => {
+    if (err) return res.status(500).json({ error: "DB hatası", details: err });
+    if (data.length === 0) return res.status(404).json({ error: "Kullanıcı bulunamadı." });
+
+    return res.json({ user_id: data[0].user_id, user: data[0] });
+  });
+});
+
+
+app.post("/api/save-address", (req, res) => {
+  const { user_id, lat, lng, address } = req.body;
+
+      const insertSql = "INSERT INTO coordinate (user_id, lat, lng, address) VALUES (?, ?, ?, ?)";
+      db.query(insertSql, [user_id, lat, lng, address], (err3) => {
+        if (err3) {
+          console.log("INSERT ERROR:", err3);
+          return res.status(500).json({ error: "DB hatası", details: err3 });
+        }
+        return res.json({ message: "Adres kaydedildi." });
+      });
+});
+
+const PORT = 8081;
+app.listen(PORT, () => {
+  console.log(`Server ${PORT} portunda çalışıyor...`);
 });

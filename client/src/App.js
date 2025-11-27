@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import WelcomePage from "./pages/WelcomePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -11,6 +11,7 @@ import MessagesPage from "./pages/MessagesPage";
 import OrdersPage from "./pages/OrdersPage";
 import SellerRegistrationPage from "./pages/SellerRegistrationPage";
 import SellerDetailPage from "./pages/SellerDetailPage";
+import AddressInputPage from "./pages/AddressInputPage";
 
 function App() {
   return (
@@ -27,6 +28,8 @@ function App() {
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/seller-register" element={<SellerRegistrationPage />} />
         <Route path="/seller/:id" element={<SellerDetailPage />} />
+        <Route path="/add-address" element={<AddressInputPage />} />
+        <Route path="/AddressInputPage" element={<Navigate to="/add-address" replace />} />
       </Routes>
     </Router>
   );

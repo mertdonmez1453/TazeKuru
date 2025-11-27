@@ -44,7 +44,6 @@ function HomePage() {
         .select("*")
         .eq("is_available", true);
 
-      // Satıcı ise sadece kendi yemeklerini göster
       if (userData?.role === "seller" && userData?.is_seller_approved) {
         query = query.eq("seller_id", userData.user_id);
       }
@@ -78,7 +77,6 @@ function HomePage() {
 
   const loadSellers = async () => {
     try {
-      // Önce tüm satıcıları kontrol et (onaylı olmayanlar da dahil)
       const { data: allSellers, error: allError } = await supabase
         .from("users")
         .select("*")
@@ -88,7 +86,6 @@ function HomePage() {
 
       if (allError) {
         console.error("Satıcılar yüklenirken hata:", allError);
-        // Hata olsa bile devam et, sadece onaylı olanları göster
         const { data: approvedSellers } = await supabase
           .from("users")
           .select("*")
@@ -100,12 +97,10 @@ function HomePage() {
         return;
       }
 
-      // Onaylı satıcıları filtrele
       const approvedSellers = (allSellers || []).filter(
         (seller) => seller.is_seller_approved === true
       );
 
-      // Eğer onaylı satıcı yoksa, tüm satıcıları göster (test için)
       if (approvedSellers.length === 0 && allSellers && allSellers.length > 0) {
         console.log("Onaylı satıcı yok, tüm satıcılar gösteriliyor (test modu)");
         setSellers(allSellers.slice(0, 10));
@@ -218,7 +213,17 @@ function HomePage() {
                 </button>
               </div>
             </div>
+
+            {/* Sağ Üst Adres ve Çıkış */}
             <div className="flex items-center space-x-4">
+              {!userData?.address && (
+                <button
+                  onClick={() => navigate("/AddressInputPage")}
+                  className="px-4 py-2 bg-yellow-400 text-white rounded-lg hover:bg-yellow-500 transition"
+                >
+                  📍 Adres Ekle
+                </button>
+              )}
               {userData && (
                 <span className="text-sm text-gray-600 hidden md:block">
                   {userData.role === "seller" ? "👨‍🍳 Satıcı" : "👤 Müşteri"}
@@ -235,11 +240,19 @@ function HomePage() {
         </div>
       </nav>
 
+      {/* Adres Yoksa Uyarı Mesajı */}
+      {!userData?.address && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="bg-red-100 text-red-700 border border-red-300 rounded-lg p-3 text-center">
+            📌 Adres eklenmemiş! Lütfen sağ üstten adresinizi ekleyin.
+          </div>
+        </div>
+      )}
+
       {/* Arama ve Filtreleme Barı */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border-2 border-orange-200">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Arama Barı */}
             <div className="lg:col-span-2">
               <div className="relative">
                 <input
@@ -252,8 +265,6 @@ function HomePage() {
                 <span className="absolute left-4 top-3.5 text-xl">🍴</span>
               </div>
             </div>
-
-            {/* Fiyat Filtresi */}
             <div>
               <select
                 value={filterPrice}
@@ -266,8 +277,6 @@ function HomePage() {
                 <option value="high">150+ ₺</option>
               </select>
             </div>
-
-            {/* Puan Filtresi */}
             <div>
               <select
                 value={filterRating}
@@ -281,8 +290,6 @@ function HomePage() {
               </select>
             </div>
           </div>
-
-          {/* Sıralama */}
           <div className="mt-4">
             <label className="text-sm font-medium text-gray-700 mr-2">Sırala:</label>
             <select
@@ -300,7 +307,6 @@ function HomePage() {
 
         {/* Ürünler ve Satıcılar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Ana İçerik - Ürünler */}
           <div className="lg:col-span-3">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-3xl font-bold text-gray-800 flex items-center">
@@ -332,7 +338,8 @@ function HomePage() {
                         alt={product.name}
                         className="w-full h-48 object-cover"
                         onError={(e) => {
-                          e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800";
+                          e.target.src =
+                            "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800";
                         }}
                       />
                     ) : (
@@ -382,7 +389,6 @@ function HomePage() {
             </div>
           </div>
 
-          {/* Yan Bar - Popüler Satıcılar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-lg p-6 sticky top-24 border-2 border-orange-200">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
