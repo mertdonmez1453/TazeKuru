@@ -107,6 +107,16 @@ function HomePage() {
         </div>
       </nav>
 
+        {userData && (
+          <button
+          onClick={() => navigate("/sell")}
+          className="fixed bottom-6 right-6 bg-orange-600 text-white px-5 py-3 rounded-full shadow-xl text-lg hover:bg-orange-700 transition"
+          >
+            🍽 Yemek Sat
+          </button>
+        )}
+
+
       {/* 🔍 Arama + Filtre Alanı */}
       <div className="max-w-7xl mx-auto p-6">
         <input type="text" placeholder="Yemek ara..." className="w-full p-3 border rounded mb-5"

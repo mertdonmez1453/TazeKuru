@@ -35,12 +35,19 @@ db.on("error", (err) => {
 // ----------------- API ENDPOINTLER -----------------
 
 app.get("/api/yemekler", (req, res) => {
-  const sql = "SELECT * FROM yemekler";
+  const sql = `
+    SELECT p.*, u.first_name, u.last_name, u.rating
+    FROM product p
+    LEFT JOIN users u ON p.seller_id = u.user_id
+    ORDER BY p.upload_date DESC
+  `;
+
   db.query(sql, (err, data) => {
     if (err) return res.status(500).json({ error: err });
-    return res.json(data);
+    res.json(data);
   });
 });
+
 
 app.post("/api/signup", (req, res) => {
   const {
@@ -130,6 +137,27 @@ app.put("/api/update-user", (req, res) => {
     });
   });
 });
+
+
+// 🔥 YEMEK EKLEME — /api/add-product
+app.post("/api/add-product", (req, res) => {
+  const { seller_id, name, description, price, quantity, photo, upload_date, is_available } = req.body;
+
+  const sql = `
+    INSERT INTO product (seller_id, name, description, price, quantity, photo, upload_date, is_available)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [seller_id, name, description, price, quantity, photo, upload_date, is_available], (err, result) => {
+    if (err) {
+      console.log("DB INSERT ERR:", err);
+      return res.status(500).json({ error: "Veritabanına eklenemedi", details: err });
+    }
+
+    res.json({ message: "Yemek başarıyla eklendi!" });
+  });
+});
+
 
 
 app.post("/api/save-address", (req, res) => {

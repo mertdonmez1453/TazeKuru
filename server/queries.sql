@@ -81,3 +81,7 @@ CREATE TABLE review (
     FOREIGN KEY (buyer_id) REFERENCES users(user_id)
 );
 
+
+
+
+ALTER TABLE product MODIFY photo VARCHAR(1000);
