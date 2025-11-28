@@ -1,9 +1,30 @@
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+/* global google */  // <— google değişkeninin global olduğunu ESLint'e bildirir. KOD DEĞİL, YORUMDUR.
 
-setOptions({
-    apiKey: "AIzaSyCBBpt9QuOOG7K581Thjrggq7zitrQFmgs", // User needs to replace this
-    version: "weekly",
-    libraries: ["places"]
-});
+let googleLoaded = false;
 
-export { importLibrary };
+/**
+ * Google Maps API yükler + importLibrary döner
+ */
+export async function importLibrary(libName) {
+    if (!googleLoaded) {
+        await loadGoogleMaps();
+        googleLoaded = true;
+    }
+    return google.maps.importLibrary(libName);
+}
+
+/**
+ * Google Maps scriptini DOM'a ekler
+ */
+function loadGoogleMaps() {
+    return new Promise((resolve, reject) => {
+        if (window.google) return resolve(); // zaten yüklüyse tekrar yükleme
+
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=🚨API_KEY🚨&libraries=places`;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}

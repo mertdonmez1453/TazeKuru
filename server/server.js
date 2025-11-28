@@ -10,9 +10,9 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "root",
+  password: process.env.DB_PASSWORD || "qqqqqqq",
   database: process.env.DB_NAME || "tazekuru_db",
-  port: process.env.DB_PORT || 3306
+  port: process.env.DB_PORT || 3006
 });
 
 // Bağlantı yönetimi
@@ -625,4 +625,17 @@ app.put("/api/notifications/:id/read", (req, res) => {
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor...`);
+});
+// Kullanıcının yüklediği ürünleri listele
+router.get("/mine/:user_id", (req, res) => {
+    const { user_id } = req.params;
+
+    db.query(
+        "SELECT * FROM product WHERE seller_id = ? ORDER BY upload_date DESC",
+        [user_id],
+        (err, result) => {
+            if (err) return res.status(500).json({ error: err });
+            res.json(result);
+        }
+    );
 });

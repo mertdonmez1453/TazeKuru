@@ -1,59 +1,46 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { importLibrary } from '../lib/GoogleMapsLoader';
+import { importLibrary } from "../lib/GoogleMapsLoader";
 
-const AddressAutocomplete = ({ onSelect }) => {
+export default function AddressAutocomplete({ onSelect }) {
+
     const inputRef = useRef(null);
-    const [inputValue, setInputValue] = useState("");
+    const [value, setValue] = useState("");
 
     useEffect(() => {
-        let autocompleteInstance = null;
+        let autocomplete;
 
-        const initAutocomplete = async () => {
-            try {
-                const { Autocomplete } = await importLibrary("places");
+        const init = async () => {
+            const { Autocomplete } = await importLibrary("places");
 
-                autocompleteInstance = new Autocomplete(inputRef.current, {
-                    types: ['geocode'],
-                    componentRestrictions: { country: 'tr' }
-                });
+            autocomplete = new Autocomplete(inputRef.current, {
+                componentRestrictions: { country: "tr" },
+                fields: ["geometry", "formatted_address"]
+            });
 
-                autocompleteInstance.addListener('place_changed', () => {
-                    const place = autocompleteInstance.getPlace();
-                    if (place.geometry) {
-                        const lat = place.geometry.location.lat();
-                        const lon = place.geometry.location.lng();
-                        const address = place.formatted_address;
+            autocomplete.addListener("place_changed", () => {
+                const place = autocomplete.getPlace();
+                if (!place.geometry) return;
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                const address = place.formatted_address;
 
-                        setInputValue(address);
-                        onSelect({ lat, lon, address });
-                    }
-                });
-            } catch (error) {
-                console.error("Google Maps Load Error:", error);
-            }
+                setValue(address);
+                onSelect({ lat, lng, address });
+            });
         };
 
-        initAutocomplete();
+        init();
 
-        return () => {
-            if (autocompleteInstance) {
-                window.google.maps.event.clearInstanceListeners(autocompleteInstance);
-            }
-        };
-    }, [onSelect]);
+        return () => autocomplete && window.google.maps.event.clearInstanceListeners(autocomplete);
+    }, []);
 
     return (
-        <div className="relative">
-            <input
-                ref={inputRef}
-                type="text"
-                placeholder="Adresinizi girin..."
-                className="w-64 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-700"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-            />
-        </div>
+        <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Adres yaz..."
+            className="p-3 border rounded w-full"
+        />
     );
-};
-
-export default AddressAutocomplete;
+}
