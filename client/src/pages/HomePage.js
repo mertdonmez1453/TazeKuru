@@ -17,7 +17,6 @@ function HomePage() {
     loadProducts();
   }, []);
 
-  // 🔥 Kullanıcı bilgisini backend'den çekiyoruz
   const loadUser = async () => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (!storedUser) return;
@@ -30,15 +29,12 @@ function HomePage() {
     if (res.ok) setUserData(data.user);
   };
 
-  // 🔥 Ürün + satıcı verisi backend'den geliyor
   const loadProducts = async () => {
     try {
       const res = await fetch("http://localhost:8081/api/yemekler");
       const data = await res.json();
-
       setProducts(data || []);
 
-      // Seller listesi oluşturuluyor
       const sellerList = [];
       data.forEach(p => {
         if (!sellerList.find(s => s.user_id === p.seller_id) && p.seller_id)
@@ -52,13 +48,11 @@ function HomePage() {
     }
   };
 
-  // 🔥 Logout
   const handleLogout = () => {
     localStorage.removeItem("user");
     navigate("/");
   };
 
-  // 🔥 Arama + Filtre + Sıralama
   const filteredProducts = products
     .filter(product => {
       const search = product.name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -88,7 +82,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
 
-      {/* 🔥 Navbar */}
+      {/* 🔥 NAVBAR */}
       <nav className="bg-white shadow-lg sticky top-0 z-50 border-b-4 border-orange-400">
         <div className="max-w-7xl mx-auto flex justify-between items-center h-16 px-6">
 
@@ -98,6 +92,12 @@ function HomePage() {
           </h1>
 
           <div className="flex items-center space-x-4">
+
+            {/* 🧾 Sipariş sayfası butonu */}
+            <button onClick={() => navigate("/orders")} className="hover:text-orange-600">
+              🧾 Siparişlerim
+            </button>
+
             <button onClick={() => navigate("/messages")} className="hover:text-orange-600">💬</button>
             <button onClick={() => navigate("/profile")} className="hover:text-orange-600">👤</button>
             <button onClick={handleLogout} className="bg-red-500 text-white px-3 py-1 rounded">
@@ -107,17 +107,17 @@ function HomePage() {
         </div>
       </nav>
 
-        {userData && (
-          <button
+      {/* 🟧 Yemek Sat butonu (Sadece giriş yapmış kullanıcı görür) */}
+      {userData && (
+        <button
           onClick={() => navigate("/sell")}
           className="fixed bottom-6 right-6 bg-orange-600 text-white px-5 py-3 rounded-full shadow-xl text-lg hover:bg-orange-700 transition"
-          >
-            🍽 Yemek Sat
-          </button>
-        )}
+        >
+          🍽 Yemek Sat
+        </button>
+      )}
 
-
-      {/* 🔍 Arama + Filtre Alanı */}
+      {/* 🔍 Ürün Listesi */}
       <div className="max-w-7xl mx-auto p-6">
         <input type="text" placeholder="Yemek ara..." className="w-full p-3 border rounded mb-5"
                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
@@ -129,12 +129,14 @@ function HomePage() {
             <option value="medium">50-150 ₺</option>
             <option value="high">150+ ₺</option>
           </select>
+
           <select value={filterRating} onChange={e => setFilterRating(e.target.value)} className="border p-2 rounded">
             <option value="all">Tüm Puanlar</option>
             <option value="high">4+⭐</option>
             <option value="medium">3-4⭐</option>
             <option value="low">3 Altı⭐</option>
           </select>
+
           <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border p-2 rounded">
             <option value="newest">En Yeni</option>
             <option value="price-low">Fiyat ↑</option>
@@ -143,18 +145,23 @@ function HomePage() {
           </select>
         </div>
 
-        {/* 🔥 Ürünler */}
+        {/* 🔥 ÜRÜNLER */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredProducts.length > 0 ? (
             filteredProducts.map(p => (
-              <div key={p.product_id} 
+              <div key={p.product_id}
                 onClick={() => navigate(`/product/${p.product_id}`)}
                 className="bg-white shadow rounded-xl p-3 cursor-pointer hover:scale-[1.03] transition border"
               >
                 <img src={p.photo || "https://placehold.co/300x200"} className="h-40 w-full object-cover rounded"/>
                 <h2 className="font-semibold text-lg mt-2">{p.name}</h2>
                 <p className="text-gray-600 line-clamp-2">{p.description}</p>
+
                 <div className="flex justify-between mt-2 text-orange-600 font-bold">{p.price} ₺</div>
+
+                <p className="text-sm text-gray-700 mt-1">
+                  👤 {p.first_name} {p.last_name}
+                </p>
               </div>
             ))
           ) : (
@@ -162,7 +169,7 @@ function HomePage() {
           )}
         </div>
 
-        {/* ⭐ Satıcılar */}
+        {/* ⭐ Satıcı listesi */}
         <div className="mt-10 bg-white p-5 rounded-xl shadow">
           <h3 className="text-xl font-bold mb-3">⭐ Popüler Satıcılar</h3>
           {sellers.length > 0 ? sellers.map(s => (
@@ -174,10 +181,8 @@ function HomePage() {
         </div>
 
       </div>
-
     </div>
   );
 }
 
 export default HomePage;
-  
