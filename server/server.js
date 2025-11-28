@@ -231,6 +231,101 @@ app.get("/api/orders/:buyer_id", (req, res) => {
   });
 });
 
+app.delete("/api/order/delete/:id", (req, res) => {
+  const orderId = req.params.id;
+
+  // Önce order_items varsa sil
+  db.query("DELETE FROM order_items WHERE order_id = ?", [orderId], (err) => {
+    if (err) return res.status(500).json({ error: "Order item silinemedi", details: err });
+
+    // Ardından order tablosundan sil
+    db.query("DELETE FROM orders WHERE order_id = ?", [orderId], (err2, result) => {
+      if (err2) return res.status(500).json({ error: "Sipariş silinemedi", details: err2 });
+
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Sipariş bulunamadı" });
+
+      res.json({ message: "Sipariş başarıyla silindi ✔" });
+    });
+  });
+});
+
+app.get("/api/messages/conversations/:id", (req, res) => {
+  const userId = req.params.id;
+
+  const sql = `
+    SELECT 
+      m.*,
+      s.user_id AS s_id, s.first_name AS s_first, s.last_name AS s_last,
+      r.user_id AS r_id, r.first_name AS r_first, r.last_name AS r_last
+    FROM messages m
+    LEFT JOIN users s ON s.user_id = m.sender_id
+    LEFT JOIN users r ON r.user_id = m.receiver_id
+    WHERE m.sender_id = ? OR m.receiver_id = ?
+    ORDER BY m.sent_at DESC
+  `;
+
+  db.query(sql, [userId, userId], (err, rows) => {
+    if (err) {
+      console.log("❌ Mesaj yükleme SQL hatası:", err);
+      return res.status(500).json({ error: "SQL Çalışmadı", details: err });
+    }
+    res.json(rows);
+  });
+});
+
+
+// 💬 İKİ KİŞİ ARASI MESAJLAR
+app.get("/api/messages/chat/:uid/:oid", (req, res) => {
+  const { uid, oid } = req.params;
+
+  const sql = `
+      SELECT *
+      FROM messages
+      WHERE (sender_id = ? AND receiver_id = ?)
+         OR (sender_id = ? AND receiver_id = ?)
+      ORDER BY sent_at ASC
+  `;
+
+  db.query(sql, [uid, oid, oid, uid], (err, rows) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(rows);
+  });
+});
+
+
+// 📤 MESAJ GÖNDERME
+app.post("/api/messages/send", (req, res) => {
+  const { sender_id, receiver_id, product_id, message_text } = req.body;
+
+  if (!sender_id || !receiver_id || !message_text)
+      return res.status(400).json({ error:"Boş mesaj gönderilemez" });
+
+  const sql = `
+      INSERT INTO messages (sender_id, receiver_id, product_id, message_text)
+      VALUES (?, ?, ?, ?)
+  `;
+
+  db.query(sql, [sender_id, receiver_id, product_id, message_text], err => {
+    if (err) return res.status(500).json({ error:"Mesaj gönderilemedi", details:err });
+    res.json({ message:"Mesaj gönderildi ✔" });
+  });
+});
+
+
+// ✔ OKUNDU İŞARETLEME
+app.post("/api/messages/read", (req, res) => {
+  const { receiver_id, sender_id } = req.body;
+
+  const sql = `
+      UPDATE messages SET is_read = 1
+      WHERE receiver_id = ? AND sender_id = ? AND is_read = 0
+  `;
+
+  db.query(sql, [receiver_id, sender_id], () => {
+    res.json({ message:"Mesajlar okundu" });
+  });
+});
+
 
 
 app.get("/api/get-current-user", (req, res) => {
@@ -299,16 +394,21 @@ app.post("/api/add-product", (req, res) => {
 
 
 app.post("/api/save-address", (req, res) => {
-  const { user_id, lat, lng, address } = req.body;
+  const { user_id, city, street, neighbourhood, description } = req.body;
 
-      const insertSql = "INSERT INTO coordinate (user_id, lat, lng, address) VALUES (?, ?, ?, ?)";
-      db.query(insertSql, [user_id, lat, lng, address], (err3) => {
-        if (err3) {
-          console.log("INSERT ERROR:", err3);
-          return res.status(500).json({ error: "DB hatası", details: err3 });
-        }
-        return res.json({ message: "Adres kaydedildi." });
-      });
+  if (!user_id || !city || !street || !neighbourhood)
+    return res.status(400).json({ error: "Eksik veri gönderildi" });
+
+  const sql = `
+      INSERT INTO address (user_id, city, street, neighbourhood, description)
+      VALUES (?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [user_id, city, street, neighbourhood, description], (err) => {
+    if (err) return res.status(500).json({ error: "Adres eklenemedi", details: err });
+
+    res.json({ message: "Adres başarıyla kaydedildi ✔" });
+  });
 });
 
 const PORT = 8081;

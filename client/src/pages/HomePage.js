@@ -8,7 +8,9 @@ function HomePage() {
   const [filterPrice, setFilterPrice] = useState("all");
   const [filterRating, setFilterRating] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+
   const [userData, setUserData] = useState(null);
+  const [userAddress, setUserAddress] = useState(null); // 🔥 ADRES BİLGİSİ BURADA
 
   const navigate = useNavigate();
 
@@ -17,6 +19,7 @@ function HomePage() {
     loadProducts();
   }, []);
 
+  // 🔥 Kullanıcı + adres bilgisi çekiliyor
   const loadUser = async () => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (!storedUser) return;
@@ -26,9 +29,14 @@ function HomePage() {
     });
 
     const data = await res.json();
-    if (res.ok) setUserData(data.user);
+
+    if (res.ok) {
+      setUserData(data.user);
+      setUserAddress(data.address); // ✔ adres varsa alınmış olur
+    }
   };
 
+  // 🔥 ÜRÜNLERİ ÇEK
   const loadProducts = async () => {
     try {
       const res = await fetch("http://localhost:8081/api/yemekler");
@@ -42,7 +50,6 @@ function HomePage() {
       });
 
       setSellers(sellerList.slice(0, 10));
-
     } catch (e) {
       console.log("Veri yükleme hatası:", e);
     }
@@ -53,6 +60,7 @@ function HomePage() {
     navigate("/");
   };
 
+  // 🔥 Filtreleme ve sıralama
   const filteredProducts = products
     .filter(product => {
       const search = product.name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -82,33 +90,42 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
 
+      {/* ❗ Kullanıcının adresi YOKSA UYARI */}
+      {userData && !userAddress && (
+        <div className="bg-red-200 text-red-800 font-semibold text-center py-3">
+          📍 Sipariş verebilmek için adres eklemelisin!
+          <button
+            onClick={() => navigate("/AddressInputPage")}
+            className="ml-3 bg-red-600 text-white px-3 py-1 rounded shadow hover:bg-red-700"
+          >
+            Adres Ekle
+          </button>
+        </div>
+      )}
+
       {/* 🔥 NAVBAR */}
       <nav className="bg-white shadow-lg sticky top-0 z-50 border-b-4 border-orange-400">
         <div className="max-w-7xl mx-auto flex justify-between items-center h-16 px-6">
 
-          <h1 className="text-3xl font-bold text-orange-600 cursor-pointer"
-              onClick={() => navigate("/home")}>
+          <h1
+            className="text-3xl font-bold text-orange-600 cursor-pointer"
+            onClick={() => navigate("/home")}
+          >
             🍽️ Taze Kuru
           </h1>
 
           <div className="flex items-center space-x-4">
-
-            {/* 🧾 Sipariş sayfası butonu */}
-            <button onClick={() => navigate("/orders")} className="hover:text-orange-600">
-              🧾 Siparişlerim
-            </button>
-
+            <button onClick={() => navigate("/orders")} className="hover:text-orange-600">🧾 Siparişlerim</button>
             <button onClick={() => navigate("/messages")} className="hover:text-orange-600">💬</button>
             <button onClick={() => navigate("/profile")} className="hover:text-orange-600">👤</button>
-            <button onClick={handleLogout} className="bg-red-500 text-white px-3 py-1 rounded">
-              Çıkış
-            </button>
+            <button onClick={handleLogout} className="bg-red-500 text-white px-3 py-1 rounded">Çıkış</button>
           </div>
+
         </div>
       </nav>
 
-      {/* 🟧 Yemek Sat butonu (Sadece giriş yapmış kullanıcı görür) */}
-      {userData && (
+      {/* 🍽 Yemek Sat (Adres varsa görünür) */}
+      {userData && userAddress && (
         <button
           onClick={() => navigate("/sell")}
           className="fixed bottom-6 right-6 bg-orange-600 text-white px-5 py-3 rounded-full shadow-xl text-lg hover:bg-orange-700 transition"
@@ -117,10 +134,15 @@ function HomePage() {
         </button>
       )}
 
-      {/* 🔍 Ürün Listesi */}
+      {/* 📍 ÜRÜN LİSTESİ */}
       <div className="max-w-7xl mx-auto p-6">
-        <input type="text" placeholder="Yemek ara..." className="w-full p-3 border rounded mb-5"
-               value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        <input
+          type="text"
+          placeholder="Yemek ara..."
+          className="w-full p-3 border rounded mb-5"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
 
         <div className="flex gap-4 mb-5">
           <select value={filterPrice} onChange={e => setFilterPrice(e.target.value)} className="border p-2 rounded">
@@ -149,7 +171,8 @@ function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredProducts.length > 0 ? (
             filteredProducts.map(p => (
-              <div key={p.product_id}
+              <div
+                key={p.product_id}
                 onClick={() => navigate(`/product/${p.product_id}`)}
                 className="bg-white shadow rounded-xl p-3 cursor-pointer hover:scale-[1.03] transition border"
               >
@@ -158,10 +181,7 @@ function HomePage() {
                 <p className="text-gray-600 line-clamp-2">{p.description}</p>
 
                 <div className="flex justify-between mt-2 text-orange-600 font-bold">{p.price} ₺</div>
-
-                <p className="text-sm text-gray-700 mt-1">
-                  👤 {p.first_name} {p.last_name}
-                </p>
+                <p className="text-sm text-gray-700 mt-1">👤 {p.first_name} {p.last_name}</p>
               </div>
             ))
           ) : (
@@ -169,15 +189,22 @@ function HomePage() {
           )}
         </div>
 
-        {/* ⭐ Satıcı listesi */}
+        {/* ⭐ POPÜLER SATICILAR */}
         <div className="mt-10 bg-white p-5 rounded-xl shadow">
           <h3 className="text-xl font-bold mb-3">⭐ Popüler Satıcılar</h3>
-          {sellers.length > 0 ? sellers.map(s => (
-            <p key={s.user_id} className="p-2 border-b last:border-none cursor-pointer hover:text-orange-600"
-               onClick={() => navigate(`/seller/${s.user_id}`)}>
-              👤 {s.first_name} {s.last_name} — ⭐ {s.rating}
-            </p>
-          )) : <p className="text-gray-500">Satıcı Yok</p>}
+          {sellers.length > 0 ? (
+            sellers.map(s => (
+              <p
+                key={s.user_id}
+                className="p-2 border-b last:border-none cursor-pointer hover:text-orange-600"
+                onClick={() => navigate(`/seller/${s.user_id}`)}
+              >
+                👤 {s.first_name} {s.last_name} — ⭐ {s.rating}
+              </p>
+            ))
+          ) : (
+            <p className="text-gray-500">Satıcı Yok</p>
+          )}
         </div>
 
       </div>
