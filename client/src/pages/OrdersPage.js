@@ -1,43 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      setUserData(user);
+      loadData(user.user_id);
+    } else {
+      navigate("/login");
+    }
+  }, [navigate]);
 
-  const loadData = async () => {
+  const loadData = async (userId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      const { data: userInfo } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", user.email)
-        .single();
-      setUserData(userInfo);
-
-      // Siparişleri yükle
-      const { data: ordersData } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          seller:users!orders_seller_id_fkey(first_name, last_name),
-          items:order_items(*, product:product(name, photo))
-        `)
-        .eq("buyer_id", userInfo.user_id)
-        .order("order_date", { ascending: false });
-
+      setLoading(true);
+      const ordersData = await api.orders.listMyOrders(userId);
       setOrders(ordersData || []);
     } catch (error) {
       console.error("Hata:", error);
@@ -48,130 +34,122 @@ function OrdersPage() {
 
   const handlePayment = async (orderId) => {
     try {
-      // Ödeme kaydı oluştur
-      await supabase.from("payment").insert([
-        {
-          order_id: orderId,
-          user_id: userData.user_id,
-          method: "credit_card",
-          payment_date: new Date().toISOString().split("T")[0],
-        },
-      ]);
+      // Call API to update order status
+      await api.orders.pay(orderId);
 
-      // Sipariş durumunu güncelle
-      await supabase
-        .from("orders")
-        .update({ status: "paid" })
-        .eq("order_id", orderId);
+      // Show success modal
+      setShowSuccessModal(true);
 
-      alert("Ödeme başarıyla tamamlandı!");
-      loadData();
+      // Reload orders to show new status
+      if (userData) {
+        await loadData(userData.user_id);
+      }
+
+      // Hide modal after 3 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 3000);
     } catch (error) {
-      console.error("Ödeme hatası:", error);
-      alert("Ödeme yapılırken hata: " + error.message);
+      console.error("Payment error:", error);
+      alert("Ödeme işlemi başarısız: " + error.message);
     }
+  };
+
+  const getStatusBadge = (status) => {
+    const statuses = {
+      pending: { label: "Beklemede", class: "badge-warning", icon: "⏳" },
+      preparing: { label: "Hazırlanıyor", class: "badge-success", icon: "👨‍🍳" },
+      on_the_way: { label: "Yolda", class: "badge-success", icon: "🚚" },
+      paid: { label: "Ödendi", class: "badge-success", icon: "✅" },
+      delivered: { label: "Teslim Edildi", class: "badge-success", icon: "📦" },
+      cancelled: { label: "İptal Edildi", class: "badge-error", icon: "❌" },
+    };
+    const statusInfo = statuses[status] || { label: status, class: "bg-gray-100 text-gray-700", icon: "📋" };
+    return (
+      <span className={`${statusInfo.class} inline-flex items-center gap-1`}>
+        <span>{statusInfo.icon}</span>
+        <span>{statusInfo.label}</span>
+      </span>
+    );
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
+          <div className="text-7xl mb-4 animate-pulse-slow">📦</div>
+          <p className="text-gray-500">Siparişleriniz yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Siparişlerim</h1>
-          <button
-            onClick={() => navigate("/home")}
-            className="px-4 py-2 text-orange-600 hover:text-orange-700"
-          >
-            ← Ana Sayfa
-          </button>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-gradient-primary mb-2">Siparişlerim</h1>
+            <p className="text-gray-600">{orders.length} sipariş bulundu</p>
+          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           {orders.length > 0 ? (
             orders.map((order) => (
-              <div
-                key={order.order_id}
-                className="bg-white rounded-xl shadow-md p-6"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Sipariş #{order.order_id}</p>
-                    <p className="text-lg font-semibold text-gray-800">
-                      {order.seller?.first_name} {order.seller?.last_name}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(order.order_date).toLocaleDateString("tr-TR")}
+              <div key={order.order_id} className="card p-6 hover:shadow-2xl transition-all animate-fadeIn">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">📋</span>
+                      <span className="text-sm text-gray-500">Sipariş #{order.order_id}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-1">
+                      👨‍🍳 {order.seller_name} {order.seller_lastname}
+                    </h3>
+                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                      <span>📅</span>
+                      <span>{new Date(order.order_date).toLocaleDateString("tr-TR")}</span>
                     </p>
                   </div>
+
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-orange-600">
-                      {order.total_price} ₺
-                    </p>
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-sm ${
-                        order.status === "paid"
-                          ? "bg-green-100 text-green-800"
-                          : order.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {order.status === "paid"
-                        ? "Ödendi"
-                        : order.status === "pending"
-                        ? "Beklemede"
-                        : order.status}
-                    </span>
+                    <div className="text-3xl font-bold text-gradient-primary mb-2">
+                      {order.total_price.toFixed(2)} ₺
+                    </div>
+                    {getStatusBadge(order.status)}
                   </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  {order.items?.map((item) => (
-                    <div key={item.order_item_id} className="flex items-center space-x-4 mb-2">
-                      {item.product?.photo && (
-                        <img
-                          src={item.product.photo}
-                          alt={item.product.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium">{item.product?.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.quantity} adet × {item.price} ₺
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-sm text-gray-500 italic">
+                    Sipariş detayları yöneticinizde görüntülenebilir.
+                  </p>
                 </div>
 
                 {order.status === "pending" && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="mt-4 pt-4 border-t border-gray-100">
                     <button
                       onClick={() => handlePayment(order.order_id)}
-                      className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition"
+                      className="btn-primary w-full md:w-auto"
                     >
-                      💳 Ödeme Yap
+                      <span className="flex items-center gap-2">
+                        <span>💳</span>
+                        <span>Ödeme Yap</span>
+                      </span>
                     </button>
                   </div>
                 )}
               </div>
             ))
           ) : (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <p className="text-gray-500 text-lg mb-4">Henüz siparişiniz yok</p>
+            <div className="card p-16 text-center animate-fadeIn">
+              <span className="text-9xl mb-6 block animate-pulse-slow">📦</span>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Henüz Sipariş Yok</h2>
+              <p className="text-gray-600 mb-8">İlk siparişinizi vermek için alışverişe başlayın!</p>
               <button
                 onClick={() => navigate("/home")}
-                className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                className="btn-primary px-8 py-4"
               >
                 Yemeklere Göz At
               </button>
@@ -179,9 +157,25 @@ function OrdersPage() {
           )}
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="card max-w-md w-full p-8 text-center animate-scaleIn">
+            <div className="text-8xl mb-4 animate-bounce">✅</div>
+            <h2 className="text-3xl font-bold text-gradient-primary mb-4">Ödeme Başarılı!</h2>
+            <p className="text-xl text-gray-700 mb-2">Siparişiniz Hazırlanıyor!</p>
+            <p className="text-gray-600">Satıcınız siparişinizi hazırlıyor...</p>
+            <div className="mt-6">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-emerald-500 to-lime-500 h-2 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default OrdersPage;
-

@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
 import WelcomePage from "./pages/WelcomePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -11,23 +12,27 @@ import MessagesPage from "./pages/MessagesPage";
 import OrdersPage from "./pages/OrdersPage";
 import SellerRegistrationPage from "./pages/SellerRegistrationPage";
 import SellerDetailPage from "./pages/SellerDetailPage";
+import CartPage from "./pages/CartPage";
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<WelcomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/sell" element={<SellFoodPage />} />
-        <Route path="/product/:id" element={<ProductDetailPage />} />
-        <Route path="/messages" element={<MessagesPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/seller-register" element={<SellerRegistrationPage />} />
-        <Route path="/seller/:id" element={<SellerDetailPage />} />
-      </Routes>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<WelcomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/sell" element={<SellFoodPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/seller-register" element={<SellerRegistrationPage />} />
+          <Route path="/seller/:id" element={<SellerDetailPage />} />
+          <Route path="/cart" element={<CartPage />} />
+        </Routes>
+      </Layout>
     </Router>
   );
 }

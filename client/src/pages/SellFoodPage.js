@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function SellFoodPage() {
   const [formData, setFormData] = useState({
@@ -10,41 +10,20 @@ function SellFoodPage() {
     quantity: "",
     photo: "",
   });
-  const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        navigate("/login");
-        return;
-      }
-      setUser(authUser);
-
-      // Kullanıcı bilgilerini kontrol et
-      const { data: userInfo, error: userError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", authUser.email)
-        .single();
-
-      if (userError) {
-        console.error("Kullanıcı bilgisi alınamadı:", userError);
-        return;
-      }
-
-      setUserData(userInfo);
-
-      if (!userInfo || userInfo.role !== "seller" || !userInfo.is_seller_approved) {
-        alert("Yemek satmak için satıcı hesabı gereklidir!");
-        navigate("/seller-register");
-        return;
-      }
-    };
-    getUser();
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      setUserData(user);
+      // Role kontrolü veritabanında sütun olmadığı için şimdilik kaldırıldı veya basitleştirildi
+      // Gerçek uygulamada: if (user.role !== 'seller') ...
+    } else {
+      navigate("/login");
+    }
   }, [navigate]);
 
   const handleSubmit = async (e) => {
@@ -56,28 +35,14 @@ function SellFoodPage() {
         throw new Error("Kullanıcı bilgisi bulunamadı. Lütfen sayfayı yenileyin.");
       }
 
-      const { data, error } = await supabase
-        .from("product")
-        .insert([
-          {
-            seller_id: userData.user_id,
-            name: formData.name,
-            description: formData.description,
-            price: parseFloat(formData.price),
-            quantity: parseInt(formData.quantity),
-            photo: formData.photo || null,
-            upload_date: new Date().toISOString().split("T")[0],
-            is_available: true,
-          },
-        ])
-        .select();
-
-      if (error) {
-        console.error("Ürün ekleme hatası:", error);
-        throw error;
-      }
-
-      console.log("Ürün başarıyla eklendi:", data);
+      await api.products.create({
+        seller_id: userData.user_id,
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        quantity: parseInt(formData.quantity),
+        photo: formData.photo || null,
+      });
 
       alert("Yemek başarıyla eklendi!");
       navigate("/home");
@@ -213,4 +178,3 @@ function SellFoodPage() {
 }
 
 export default SellFoodPage;
-

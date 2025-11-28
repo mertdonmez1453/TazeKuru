@@ -10,7 +10,8 @@ CREATE TABLE users (
   email VARCHAR(100),
   registration_date DATE,
   rating FLOAT,
-  loyalty_points FLOAT
+  loyalty_points FLOAT,
+  role VARCHAR(20) DEFAULT 'customer'
 );
 
 
@@ -81,3 +82,15 @@ CREATE TABLE review (
     FOREIGN KEY (buyer_id) REFERENCES users(user_id)
 );
 
+CREATE TABLE messages (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT,
+    receiver_id INT,
+    product_id INT,
+    message_text TEXT,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (sender_id) REFERENCES users(user_id),
+    FOREIGN KEY (receiver_id) REFERENCES users(user_id),
+    FOREIGN KEY (product_id) REFERENCES product(product_id)
+);

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function ProfilePage() {
-  const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -13,243 +12,350 @@ function ProfilePage() {
     phone_number: "",
     email: "",
   });
+  const [addresses, setAddresses] = useState([]);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    city: "",
+    street: "",
+    neighbourhood: "",
+    description: ""
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        navigate("/login");
-        return;
-      }
-
-      setUser(authUser);
-
-      // Kullanıcı bilgilerini veritabanından al
-      const { data } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", authUser.email)
-        .single();
-
-      if (data) {
-        setUserData(data);
-        setFormData({
-          first_name: data.first_name || "",
-          last_name: data.last_name || "",
-          phone_number: data.phone_number || "",
-          email: data.email || authUser.email || "",
-        });
-      }
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      setUserData(user);
+      setFormData({
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        phone_number: user.phone_number || "",
+        email: user.email || "",
+      });
+      fetchAddresses(user.user_id);
       setLoading(false);
-    };
-
-    loadUserData();
+    } else {
+      navigate("/login");
+    }
   }, [navigate]);
+
+  const fetchAddresses = async (userId) => {
+    try {
+      const data = await api.addresses.list(userId);
+      setAddresses(data);
+    } catch (err) {
+      console.error("Adresler yüklenemedi:", err);
+    }
+  };
 
   const handleSave = async () => {
     try {
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("user_id")
-        .eq("email", user.email)
-        .single();
+      if (!userData || !userData.user_id) return;
 
-      if (existingUser) {
-        // Güncelle
-        const { error } = await supabase
-          .from("users")
-          .update(formData)
-          .eq("user_id", existingUser.user_id);
+      await api.users.update(userData.user_id, {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone_number: formData.phone_number
+      });
 
-        if (error) throw error;
-      }
-
+      const updatedUser = { ...userData, ...formData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUserData(updatedUser);
       setEditing(false);
-      alert("Profil güncellendi!");
-      window.location.reload();
+      alert("✅ Profil güncellendi!");
     } catch (error) {
       console.error("Hata:", error);
       alert("Hata: " + error.message);
     }
   };
 
+  const handleAddAddress = async (e) => {
+    e.preventDefault();
+    try {
+      await api.addresses.create({
+        user_id: userData.user_id,
+        ...addressForm
+      });
+      alert("✅ Adres eklendi!");
+      setShowAddressForm(false);
+      setAddressForm({ city: "", street: "", neighbourhood: "", description: "" });
+      fetchAddresses(userData.user_id);
+    } catch (err) {
+      alert("Adres eklenemedi: " + err.message);
+    }
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if (!window.confirm("Bu adresi silmek istediğinize emin misiniz?")) return;
+    try {
+      await api.addresses.delete(id);
+      fetchAddresses(userData.user_id);
+    } catch (err) {
+      alert("Adres silinemedi: " + err.message);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Yükleniyor...</p>
+          <div className="text-7xl mb-4 animate-pulse-slow">👤</div>
+          <p className="text-gray-500">Yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-orange-200">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-              👤 Profil
-            </h1>
-            <div className="flex space-x-2">
-              {userData?.role === "customer" && !userData?.is_seller_approved && (
-                <button
-                  onClick={() => navigate("/seller-register")}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                >
-                  👨‍🍳 Satıcı Ol
-                </button>
-              )}
-              {!editing && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                >
-                  ✏️ Düzenle
-                </button>
-              )}
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gradient-primary mb-2">👤 Profil</h1>
+          <p className="text-gray-600">Hesap bilgilerinizi yönetin</p>
+        </div>
 
-          <div className="space-y-6">
-            {/* Profil Fotoğrafı */}
-            <div className="flex items-center space-x-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-orange-200 to-amber-200 rounded-full flex items-center justify-center border-4 border-orange-300">
-                <span className="text-orange-700 text-3xl font-semibold">
+        {/* Profile Card */}
+        <div className="card p-8 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+            {/* Avatar & Info */}
+            <div className="flex items-center gap-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-lime-500 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                <span className="text-white text-4xl font-bold">
                   {formData.first_name?.[0] || formData.email?.[0] || "👤"}
                 </span>
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800">
+                <h2 className="text-3xl font-bold text-gray-800">
                   {formData.first_name} {formData.last_name}
                 </h2>
-                <p className="text-gray-600">{formData.email}</p>
+                <p className="text-gray-600 text-lg">{formData.email}</p>
                 {userData?.role === "seller" && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">
-                    👨‍🍳 Satıcı
+                  <span className="inline-flex items-center gap-2 mt-2 px-4 py-1 bg-gradient-to-r from-emerald-500 to-lime-500 text-white rounded-full text-sm font-semibold">
+                    <span>👨‍🍳</span>
+                    <span>Satıcı</span>
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Bilgiler */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ad
-                </label>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={formData.first_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, first_name: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                ) : (
-                  <p className="text-gray-800">{formData.first_name || "-"}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Soyad
-                </label>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={formData.last_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_name: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                ) : (
-                  <p className="text-gray-800">{formData.last_name || "-"}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <p className="text-gray-800">{formData.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefon
-                </label>
-                {editing ? (
-                  <input
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone_number: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                ) : (
-                  <p className="text-gray-800">{formData.phone_number || "-"}</p>
-                )}
-              </div>
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              {userData?.role === "customer" && !userData?.is_seller_approved && (
+                <button
+                  onClick={() => navigate("/seller-register")}
+                  className="btn-secondary"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>👨‍🍳</span>
+                    <span>Satıcı Ol</span>
+                  </span>
+                </button>
+              )}
+              {!editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="btn-primary"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>✏️</span>
+                    <span>Düzenle</span>
+                  </span>
+                </button>
+              )}
             </div>
+          </div>
 
-            {/* İstatistikler */}
-            {userData && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t-2 border-orange-200">
-                <div className="text-center bg-orange-50 rounded-lg p-4">
-                  <p className="text-3xl mb-2">⭐</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {userData.rating?.toFixed(1) || "0.0"}
-                  </p>
-                  <p className="text-sm text-gray-600">Puan</p>
-                </div>
-                <div className="text-center bg-amber-50 rounded-lg p-4">
-                  <p className="text-3xl mb-2">🎁</p>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {userData.loyalty_points || 0}
-                  </p>
-                  <p className="text-sm text-gray-600">Sadakat Puanı</p>
-                </div>
-                {userData.role === "customer" && (
-                  <div className="text-center bg-green-50 rounded-lg p-4">
-                    <p className="text-3xl mb-2">📦</p>
-                    <p className="text-2xl font-bold text-green-600">-</p>
-                    <p className="text-sm text-gray-600">Sipariş</p>
-                  </div>
-                )}
-                {userData.role === "seller" && (
-                  <div className="text-center bg-blue-50 rounded-lg p-4">
-                    <p className="text-3xl mb-2">🍽️</p>
-                    <p className="text-2xl font-bold text-blue-600">-</p>
-                    <p className="text-sm text-gray-600">Ürün</p>
-                  </div>
-                )}
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="text-center card-glass p-4">
+              <div className="text-4xl mb-2">⭐</div>
+              <div className="text-2xl font-bold text-gradient-primary">
+                {userData?.rating?.toFixed(1) || "0.0"}
+              </div>
+              <div className="text-sm text-gray-600">Puan</div>
+            </div>
+            <div className="text-center card-glass p-4">
+              <div className="text-4xl mb-2">🎁</div>
+              <div className="text-2xl font-bold text-gradient-secondary">
+                {userData?.loyalty_points || 0}
+              </div>
+              <div className="text-sm text-gray-600">Sadakat Puanı</div>
+            </div>
+            {userData?.role === "customer" && (
+              <div className="text-center card-glass p-4">
+                <div className="text-4xl mb-2">📦</div>
+                <div className="text-2xl font-bold text-emerald-600">-</div>
+                <div className="text-sm text-gray-600">Sipariş</div>
               </div>
             )}
+            {userData?.role === "seller" && (
+              <div className="text-center card-glass p-4">
+                <div className="text-4xl mb-2">🍽️</div>
+                <div className="text-2xl font-bold text-amber-600">-</div>
+                <div className="text-sm text-gray-600">Ürün</div>
+              </div>
+            )}
+          </div>
 
-            {/* Butonlar */}
-            {editing && (
-              <div className="flex space-x-4 pt-6">
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ad</label>
+              {editing ? (
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className="input-modern"
+                />
+              ) : (
+                <p className="text-gray-800 text-lg">{formData.first_name || "-"}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Soyad</label>
+              {editing ? (
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className="input-modern"
+                />
+              ) : (
+                <p className="text-gray-800 text-lg">{formData.last_name || "-"}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <p className="text-gray-800 text-lg">{formData.email}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+              {editing ? (
+                <input
+                  type="tel"
+                  value={formData.phone_number}
+                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                  className="input-modern"
+                />
+              ) : (
+                <p className="text-gray-800 text-lg">{formData.phone_number || "-"}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Save/Cancel Buttons */}
+          {editing && (
+            <div className="flex gap-4 mt-6">
+              <button onClick={handleSave} className="btn-primary flex-1">
+                💾 Kaydet
+              </button>
+              <button
+                onClick={() => {
+                  setEditing(false);
+                  setFormData({
+                    first_name: userData.first_name || "",
+                    last_name: userData.last_name || "",
+                    phone_number: userData.phone_number || "",
+                    email: userData.email || "",
+                  });
+                }}
+                className="btn-outline flex-1"
+              >
+                ❌ İptal
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Addresses Section */}
+        <div className="card p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <span>📍</span>
+              <span>Adreslerim</span>
+            </h3>
+            <button
+              onClick={() => setShowAddressForm(!showAddressForm)}
+              className={showAddressForm ? "btn-outline" : "btn-primary"}
+            >
+              {showAddressForm ? "İptal" : "+ Yeni Adres Ekle"}
+            </button>
+          </div>
+
+          {/* Address Form */}
+          {showAddressForm && (
+            <form onSubmit={handleAddAddress} className="card-glass p-6 mb-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Şehir"
+                  className="input-modern"
+                  value={addressForm.city}
+                  onChange={e => setAddressForm({ ...addressForm, city: e.target.value })}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Mahalle"
+                  className="input-modern"
+                  value={addressForm.neighbourhood}
+                  onChange={e => setAddressForm({ ...addressForm, neighbourhood: e.target.value })}
+                  required
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Sokak / Cadde"
+                className="input-modern"
+                value={addressForm.street}
+                onChange={e => setAddressForm({ ...addressForm, street: e.target.value })}
+                required
+              />
+              <textarea
+                placeholder="Adres Tarifi / Detay"
+                className="input-modern"
+                rows="3"
+                value={addressForm.description}
+                onChange={e => setAddressForm({ ...addressForm, description: e.target.value })}
+              />
+              <button type="submit" className="btn-primary w-full">
+                Kaydet
+              </button>
+            </form>
+          )}
+
+          {/* Address List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {addresses.map(addr => (
+              <div key={addr.address_id} className="card-glass p-6 relative group hover:shadow-lg transition">
                 <button
-                  onClick={handleSave}
-                  className="flex-1 bg-orange-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-orange-700 transition"
+                  onClick={() => handleDeleteAddress(addr.address_id)}
+                  className="absolute top-4 right-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100"
+                  title="Sil"
                 >
-                  💾 Kaydet
+                  🗑️
                 </button>
-                <button
-                  onClick={() => {
-                    setEditing(false);
-                    window.location.reload();
-                  }}
-                  className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-medium hover:bg-gray-300 transition"
-                >
-                  ❌ İptal
-                </button>
+                <div className="mb-2">
+                  <span className="text-2xl mr-2">📍</span>
+                  <span className="font-bold text-gray-800 text-lg">{addr.city}</span>
+                </div>
+                <p className="text-gray-700 font-medium">{addr.neighbourhood}</p>
+                <p className="text-gray-600">{addr.street}</p>
+                {addr.description && (
+                  <p className="text-sm text-gray-500 mt-2 italic">{addr.description}</p>
+                )}
+              </div>
+            ))}
+            {addresses.length === 0 && !showAddressForm && (
+              <div className="col-span-2 text-center py-12">
+                <div className="text-7xl mb-4">📍</div>
+                <p className="text-gray-500">Henüz kayıtlı adresiniz yok</p>
               </div>
             )}
           </div>
@@ -260,4 +366,3 @@ function ProfilePage() {
 }
 
 export default ProfilePage;
-

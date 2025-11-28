@@ -1,17 +1,247 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    /* Fresh Green Primary */
+    --color-primary-50: #ecfdf5;
+    --color-primary-100: #d1fae5;
+    --color-primary-200: #a7f3d0;
+    --color-primary-300: #6ee7b7;
+    --color-primary-400: #34d399;
+    --color-primary-500: #10b981;
+    --color-primary-600: #059669;
+    --color-primary-700: #047857;
+    --color-primary-800: #065f46;
+    --color-primary-900: #064e3b;
+    
+    /* Warm Orange Secondary */
+    --color-secondary-50: #fffbeb;
+    --color-secondary-100: #fef3c7;
+    --color-secondary-200: #fde68a;
+    --color-secondary-300: #fcd34d;
+    --color-secondary-400: #fbbf24;
+    --color-secondary-500: #f59e0b;
+    --color-secondary-600: #d97706;
+    --color-secondary-700: #b45309;
+    --color-secondary-800: #92400e;
+    --color-secondary-900: #78350f;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #F9FAFB;
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #10b981;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #059669;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* Button Styles */
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-xl 
+           shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 
+           transform hover:-translate-y-0.5 transition-all duration-200 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold rounded-xl 
+           shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 
+           transform hover:-translate-y-0.5 transition-all duration-200 active:scale-95;
+  }
+
+  .btn-outline {
+    @apply px-6 py-3 bg-white text-emerald-600 font-semibold rounded-xl border-2 border-emerald-500
+           hover:bg-emerald-50 shadow-md hover:shadow-lg 
+           transform hover:-translate-y-0.5 transition-all duration-200 active:scale-95;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden;
+  }
+
+  .card-glass {
+    @apply backdrop-blur-md bg-white/70 rounded-2xl shadow-xl border border-white/20;
+  }
+
+  /* Input Styles */
+  .input-modern {
+    @apply w-full px-4 py-3 border-2 border-gray-200 rounded-xl 
+           focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 
+           transition-all duration-200 outline-none;
+  }
+
+  /* Badge Styles */
+  .badge-success {
+    @apply px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium;
+  }
+
+  .badge-warning {
+    @apply px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium;
+  }
+
+  .badge-error {
+    @apply px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium;
+  }
+
+  /* Gradient Backgrounds */
+  .gradient-primary {
+    @apply bg-gradient-to-br from-emerald-50 via-white to-emerald-100;
+  }
+
+  .gradient-secondary {
+    @apply bg-gradient-to-br from-amber-50 via-white to-amber-100;
+  }
+
+  .gradient-fresh {
+    @apply bg-gradient-to-br from-emerald-400 to-lime-500;
+  }
+
+  .gradient-warm {
+    @apply bg-gradient-to-br from-amber-400 to-orange-500;
+  }
+}
+
+@layer utilities {
+  /* Custom Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  .animate-slideDown {
+    animation: slideDown 0.6s ease-out;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 0.5s ease-out;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 2s ease-in-out infinite;
+  }
+
+  /* Text Gradients */
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-emerald-600 to-lime-600 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-secondary {
+    @apply bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent;
+  }
+
+  /* Shadows */
+  .shadow-glow-green {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+
+  .shadow-glow-orange {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
 }

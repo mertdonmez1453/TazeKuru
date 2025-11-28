@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function SignupPage() {
   const [formData, setFormData] = useState({
@@ -10,6 +10,7 @@ function SignupPage() {
     firstName: "",
     lastName: "",
     phoneNumber: "",
+    role: "customer",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,32 +34,16 @@ function SignupPage() {
     }
 
     try {
-      // Supabase Auth ile kullanıcı oluştur
-      const { error: authError } = await supabase.auth.signUp({
+      await api.auth.signup({
         email: formData.email,
         password: formData.password,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone_number: formData.phoneNumber,
+        role: formData.role
       });
 
-      if (authError) throw authError;
-
-      // Kullanıcı bilgilerini veritabanına ekle
-      const { error: dbError } = await supabase.from("users").insert([
-        {
-          email: formData.email,
-          username: formData.email.split("@")[0],
-          password: formData.password, // Supabase auth kullanıyoruz ama eski yapı için
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone_number: formData.phoneNumber || null,
-          registration_date: new Date().toISOString().split("T")[0],
-          rating: 0,
-          loyalty_points: 0,
-        },
-      ]);
-
-      if (dbError) throw dbError;
-
-      alert("Kayıt başarılı! Giriş yapabilirsiniz.");
+      alert("✅ Kayıt başarılı! Giriş yapabilirsiniz.");
       navigate("/login");
     } catch (err) {
       setError(err.message || "Kayıt olurken bir hata oluştu");
@@ -75,43 +60,96 @@ function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Kayıt Ol
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Yeni hesap oluşturun
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+    <div className="min-h-screen flex">
+      {/* Left Side - Visual */}
+      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 items-center justify-center p-12 relative overflow-hidden">
+        {/* Floating Elements */}
+        <div className="absolute top-20 left-20 text-8xl animate-float opacity-30">🌮</div>
+        <div className="absolute bottom-32 right-20 text-9xl animate-float opacity-30" style={{ animationDelay: '0.5s' }}>🍕</div>
+        <div className="absolute top-1/3 right-1/4 text-7xl animate-float opacity-30" style={{ animationDelay: '1s' }}>🍜</div>
 
-          <div className="space-y-4">
+        <div className="relative z-10 text-white text-center max-w-lg animate-fadeIn">
+          <h2 className="text-5xl font-bold mb-6">
+            Topluluğumuza Katılın! 👋
+          </h2>
+          <p className="text-xl text-amber-50 mb-8 leading-relaxed">
+            Binlerce lezzetli yemeği keşfedin veya kendi yemeklerinizi satarak gelir elde edin.
+          </p>
+          <div className="space-y-4 text-left">
+            <div className="flex items-center gap-4 bg-white/20 backdrop-blur-sm rounded-xl p-4">
+              <span className="text-4xl">🎯</span>
+              <div>
+                <div className="font-bold text-lg">Kolay Kayıt</div>
+                <div className="text-amber-100 text-sm">Dakikalar içinde başlayın</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 bg-white/20 backdrop-blur-sm rounded-xl p-4">
+              <span className="text-4xl">💰</span>
+              <div>
+                <div className="font-bold text-lg">Ekstra Gelir</div>
+                <div className="text-amber-100 text-sm">Yemek satarak kazanın</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 bg-white/20 backdrop-blur-sm rounded-xl p-4">
+              <span className="text-4xl">🌟</span>
+              <div>
+                <div className="font-bold text-lg">Güvenli Platform</div>
+                <div className="text-amber-100 text-sm">Verileriniz korumalı</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gray-50 overflow-y-auto">
+        <div className="max-w-md w-full space-y-6 py-12 animate-slideUp">
+          {/* Logo & Title */}
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center mb-4">
+              <div className="text-7xl animate-pulse-slow">🍽️</div>
+            </div>
+            <h2 className="text-4xl font-extrabold">
+              <span className="text-gradient-secondary">Kayıt Olun</span>
+            </h2>
+            <p className="mt-3 text-gray-600 text-lg">
+              Yeni bir hesap oluşturun
+            </p>
+          </div>
+
+          {/* Form */}
+          <form className="mt-6 space-y-4" onSubmit={handleSignup}>
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-slideDown">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email *
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email Adresi *
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="ornek@email.com"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  📧
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="input-modern pl-12"
+                  placeholder="ornek@email.com"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                   Ad
                 </label>
                 <input
@@ -120,12 +158,12 @@ function SignupPage() {
                   type="text"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="input-modern"
                   placeholder="Ad"
                 />
               </div>
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                   Soyad
                 </label>
                 <input
@@ -134,79 +172,147 @@ function SignupPage() {
                   type="text"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  className="input-modern"
                   placeholder="Soyad"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
                 Telefon
               </label>
-              <input
-                id="phoneNumber"
-                name="phoneNumber"
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="0555 123 45 67"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  📱
+                </div>
+                <input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="input-modern pl-12"
+                  placeholder="0555 123 45 67"
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Şifre *
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="En az 6 karakter"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  🔒
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="input-modern pl-12"
+                  placeholder="En az 6 karakter"
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Şifre Tekrar *
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="Şifreyi tekrar girin"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                  🔐
+                </div>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="input-modern pl-12"
+                  placeholder="Şifreyi tekrar girin"
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Hesap Türü *
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`cursor-pointer transition-all duration-200 ${formData.role === "customer" ? 'ring-2 ring-emerald-500' : 'ring-1 ring-gray-200'}`}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="customer"
+                    checked={formData.role === "customer"}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  <div className={`p-4 rounded-xl text-center ${formData.role === "customer" ? 'bg-emerald-50' : 'bg-white'}`}>
+                    <div className="text-4xl mb-2">👤</div>
+                    <div className="font-semibold">Müşteri</div>
+                    <div className="text-xs text-gray-500">Alışveriş yap</div>
+                  </div>
+                </label>
+                <label className={`cursor-pointer transition-all duration-200 ${formData.role === "seller" ? 'ring-2 ring-amber-500' : 'ring-1 ring-gray-200'}`}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="seller"
+                    checked={formData.role === "seller"}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  <div className={`p-4 rounded-xl text-center ${formData.role === "seller" ? 'bg-amber-50' : 'bg-white'}`}>
+                    <div className="text-4xl mb-2">👨‍🍳</div>
+                    <div className="font-semibold">Satıcı</div>
+                    <div className="text-xs text-gray-500">Yemek sat</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="btn-secondary w-full text-lg mt-6"
             >
-              {loading ? "Kayıt yapılıyor..." : "Kayıt Ol"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin">⏳</span>
+                  <span>Kayıt yapılıyor...</span>
+                </span>
+              ) : (
+                "Kayıt Ol"
+              )}
             </button>
-          </div>
 
-          <div className="text-center">
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              Zaten hesabınız var mı? Giriş yapın
-            </Link>
-          </div>
-        </form>
+            <div className="text-center pt-4">
+              <Link
+                to="/login"
+                className="font-medium text-amber-600 hover:text-amber-700 text-lg group"
+              >
+                Zaten hesabınız var mı?{" "}
+                <span className="underline group-hover:no-underline">Giriş yapın →</span>
+              </Link>
+            </div>
+
+            <div className="text-center">
+              <Link
+                to="/"
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                ← Ana Sayfaya Dön
+              </Link>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

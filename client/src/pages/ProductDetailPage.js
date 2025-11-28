@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function ProductDetailPage() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [seller, setSeller] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
@@ -15,54 +14,28 @@ function ProductDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUserData(JSON.parse(storedUser));
+    }
     loadData();
   }, [id]);
 
   const loadData = async () => {
     try {
-      // Kullanıcı bilgisi
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      setUser(authUser);
-
-      if (authUser) {
-        const { data: userInfo } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", authUser.email)
-          .single();
-        setUserData(userInfo);
-      }
-
+      setLoading(true);
       // Ürün bilgisi
-      const { data: productData, error: productError } = await supabase
-        .from("product")
-        .select("*")
-        .eq("product_id", id)
-        .single();
-
-      if (productError) throw productError;
+      const productData = await api.products.get(id);
       setProduct(productData);
 
       // Satıcı bilgisi
       if (productData?.seller_id) {
-        const { data: sellerData } = await supabase
-          .from("users")
-          .select("*")
-          .eq("user_id", productData.seller_id)
-          .single();
+        const sellerData = await api.sellers.get(productData.seller_id);
         setSeller(sellerData);
       }
 
       // Yorumlar
-      const { data: reviewsData } = await supabase
-        .from("review")
-        .select(`
-          *,
-          users:buyer_id (first_name, last_name, username)
-        `)
-        .eq("product_id", id)
-        .order("review_date", { ascending: false });
-
+      const reviewsData = await api.reviews.list(id);
       setReviews(reviewsData || []);
     } catch (error) {
       console.error("Hata:", error);
@@ -71,7 +44,31 @@ function ProductDetailPage() {
     }
   };
 
+  const handleAddToCart = async () => {
+    if (!userData || userData.role !== "customer") {
+      alert("Sepete eklemek için müşteri hesabı gereklidir!");
+      return;
+    }
+
+    if (!product || product.quantity < 1) {
+      alert("Ürün stokta yok!");
+      return;
+    }
+
+    try {
+      await api.cart.add({
+        buyer_id: userData.user_id,
+        product_id: product.product_id,
+        quantity: 1
+      });
+      alert("Ürün sepete eklendi!");
+    } catch (err) {
+      alert("Sepete eklenemedi: " + err.message);
+    }
+  };
+
   const handleOrder = async () => {
+    // Doğrudan sipariş ver (Hızlı Al)
     if (!userData || userData.role !== "customer") {
       alert("Sipariş vermek için müşteri hesabı gereklidir!");
       return;
@@ -83,38 +80,16 @@ function ProductDetailPage() {
     }
 
     try {
-      // Sipariş oluştur
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert([
-          {
-            buyer_id: userData.user_id,
-            seller_id: product.seller_id,
-            order_date: new Date().toISOString().split("T")[0],
-            total_price: product.price,
-            status: "pending",
-          },
-        ])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Order items ekle
-      await supabase.from("order_items").insert([
-        {
-          order_id: orderData.order_id,
+      await api.orders.create({
+        buyer_id: userData.user_id,
+        seller_id: product.seller_id,
+        total_price: product.price,
+        items: [{
           product_id: product.product_id,
           quantity: 1,
-          price: product.price,
-        },
-      ]);
-
-      // Stok güncelle
-      await supabase
-        .from("product")
-        .update({ quantity: product.quantity - 1 })
-        .eq("product_id", product.product_id);
+          price: product.price
+        }]
+      });
 
       alert("Sipariş başarıyla oluşturuldu!");
       navigate("/orders");
@@ -136,18 +111,12 @@ function ProductDetailPage() {
     }
 
     try {
-      // Önce sipariş kontrolü yapılabilir (şimdilik atlıyoruz)
-      const { error } = await supabase.from("review").insert([
-        {
-          product_id: product.product_id,
-          buyer_id: userData.user_id,
-          rating: reviewForm.rating,
-          comment: reviewForm.comment,
-          review_date: new Date().toISOString().split("T")[0],
-        },
-      ]);
-
-      if (error) throw error;
+      await api.reviews.create({
+        product_id: product.product_id,
+        buyer_id: userData.user_id,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment
+      });
 
       alert("Yorumunuz eklendi!");
       setShowReviewForm(false);
@@ -232,7 +201,7 @@ function ProductDetailPage() {
             {/* Sağ: Bilgiler */}
             <div>
               <h1 className="text-4xl font-bold text-gray-800 mb-4">{product.name}</h1>
-              
+
               {/* Puan */}
               <div className="flex items-center mb-4">
                 <div className="flex text-yellow-400">
@@ -280,17 +249,18 @@ function ProductDetailPage() {
                 {userData?.role === "customer" && (
                   <>
                     <button
+                      onClick={handleAddToCart}
+                      disabled={product.quantity < 1}
+                      className="w-full bg-amber-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      🛒 Sepete Ekle
+                    </button>
+                    <button
                       onClick={handleOrder}
                       disabled={product.quantity < 1}
                       className="w-full bg-orange-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      🛒 Sipariş Ver
-                    </button>
-                    <button
-                      onClick={handlePayment}
-                      className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition"
-                    >
-                      💳 Ödeme Yap
+                      ⚡ Hemen Al
                     </button>
                   </>
                 )}
@@ -333,9 +303,8 @@ function ProductDetailPage() {
                         key={star}
                         type="button"
                         onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                        className={`text-3xl ${
-                          star <= reviewForm.rating ? "text-yellow-400" : "text-gray-300"
-                        } hover:text-yellow-400 transition`}
+                        className={`text-3xl ${star <= reviewForm.rating ? "text-yellow-400" : "text-gray-300"
+                          } hover:text-yellow-400 transition`}
                       >
                         ★
                       </button>
@@ -414,4 +383,3 @@ function ProductDetailPage() {
 }
 
 export default ProductDetailPage;
-

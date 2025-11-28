@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function SellerRegistrationPage() {
   const [userData, setUserData] = useState(null);
@@ -13,46 +13,41 @@ function SellerRegistrationPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadUser();
-  }, []);
-
-  const loadUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      setUserData(user);
+      if (user.role === "seller") {
+        // Zaten satıcı ise ana sayfaya yönlendir
+        navigate("/home");
+      }
+    } else {
       navigate("/login");
-      return;
     }
-
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", user.email)
-      .single();
-    setUserData(data);
-
-    if (data?.role === "seller" && data?.is_seller_approved) {
-      navigate("/home");
-    }
-  };
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          role: "seller",
-          phone_number: formData.phone,
-          is_seller_approved: false, // Admin onayı bekliyor
-        })
-        .eq("user_id", userData.user_id);
+      if (!userData || !userData.user_id) return;
 
-      if (error) throw error;
+      // Kullanıcı rolünü 'seller' olarak güncelle
+      await api.users.update(userData.user_id, {
+        first_name: userData.first_name, // Mevcut bilgileri koru
+        last_name: userData.last_name,
+        phone_number: formData.phone,
+        role: "seller"
+      });
+
+      // Local storage güncelle
+      const updatedUser = { ...userData, role: "seller", phone_number: formData.phone };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUserData(updatedUser);
 
       alert(
-        "Satıcı başvurunuz alındı! Onaylandıktan sonra yemek satmaya başlayabilirsiniz."
+        "Satıcı başvurunuz alındı! Artık yemek satmaya başlayabilirsiniz."
       );
       navigate("/home");
     } catch (error) {
@@ -68,26 +63,6 @@ function SellerRegistrationPage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (userData.role === "seller") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
-          <p className="text-gray-600 mb-4">
-            {userData.is_seller_approved
-              ? "Zaten onaylı bir satıcısınız!"
-              : "Satıcı başvurunuz onay bekliyor."}
-          </p>
-          <button
-            onClick={() => navigate("/home")}
-            className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-          >
-            Ana Sayfaya Dön
-          </button>
         </div>
       </div>
     );
@@ -158,7 +133,7 @@ function SellerRegistrationPage() {
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <p className="text-sm text-orange-800">
                 <strong>Not:</strong> Başvurunuz onaylandıktan sonra yemek satmaya
-                başlayabilirsiniz. Onay süreci genellikle 1-2 iş günü sürer.
+                başlayabilirsiniz.
               </p>
             </div>
 
@@ -186,4 +161,3 @@ function SellerRegistrationPage() {
 }
 
 export default SellerRegistrationPage;
-

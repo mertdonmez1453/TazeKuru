@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 function SellerDetailPage() {
   const { id } = useParams();
@@ -13,53 +13,26 @@ function SellerDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUserData(JSON.parse(storedUser));
+    }
     loadData();
   }, [id]);
 
   const loadData = async () => {
     try {
-      // Kullanıcı bilgisi
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const { data: userInfo } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", authUser.email)
-          .single();
-        setUserData(userInfo);
-      }
-
+      setLoading(true);
       // Satıcı bilgisi
-      const { data: sellerData, error: sellerError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("user_id", id)
-        .single();
-
-      if (sellerError) throw sellerError;
+      const sellerData = await api.sellers.get(id);
       setSeller(sellerData);
 
       // Satıcının ürünleri
-      const { data: productsData } = await supabase
-        .from("product")
-        .select("*")
-        .eq("seller_id", id)
-        .eq("is_available", true)
-        .order("upload_date", { ascending: false });
-
+      const productsData = await api.products.list({ seller_id: id });
       setProducts(productsData || []);
 
-      // Satıcının yorumları
-      const { data: reviewsData } = await supabase
-        .from("review")
-        .select(`
-          *,
-          users:buyer_id (first_name, last_name, username)
-        `)
-        .eq("product_id", null) // Satıcıya yapılan yorumlar için
-        .order("review_date", { ascending: false });
-
-      // Şimdilik ürün yorumlarını kullanıyoruz
+      // Satıcı yorumları (şimdilik API'de özel endpoint yok, atlıyoruz veya genel yorumları çekiyoruz)
+      // Gerçek implementasyonda: api.reviews.listSellerReviews(id) gibi bir şey olmalı
     } catch (error) {
       console.error("Hata:", error);
     } finally {
@@ -84,32 +57,12 @@ function SellerDetailPage() {
 
     try {
       // Satıcıya yorum ekle (product_id null olarak)
-      const { error } = await supabase.from("review").insert([
-        {
-          product_id: null,
-          buyer_id: userData.user_id,
-          rating: ratingForm.rating,
-          comment: ratingForm.comment,
-          review_date: new Date().toISOString().split("T")[0],
-        },
-      ]);
-
-      if (error) throw error;
-
-      // Satıcının ortalama puanını güncelle
-      const { data: allReviews } = await supabase
-        .from("review")
-        .select("rating")
-        .eq("product_id", null);
-
-      if (allReviews && allReviews.length > 0) {
-        const avgRating =
-          allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-        await supabase
-          .from("users")
-          .update({ rating: avgRating })
-          .eq("user_id", id);
-      }
+      await api.reviews.create({
+        product_id: null, // Satıcı yorumu olduğu için null
+        buyer_id: userData.user_id,
+        rating: ratingForm.rating,
+        comment: ratingForm.comment
+      });
 
       alert("Yorumunuz eklendi!");
       setShowRatingForm(false);
@@ -224,11 +177,10 @@ function SellerDetailPage() {
                       onClick={() =>
                         setRatingForm({ ...ratingForm, rating: star })
                       }
-                      className={`text-4xl ${
-                        star <= ratingForm.rating
+                      className={`text-4xl ${star <= ratingForm.rating
                           ? "text-yellow-400"
                           : "text-gray-300"
-                      } hover:text-yellow-400 transition`}
+                        } hover:text-yellow-400 transition`}
                     >
                       ★
                     </button>
@@ -333,4 +285,3 @@ function SellerDetailPage() {
 }
 
 export default SellerDetailPage;
-
