@@ -14,6 +14,12 @@ function HomePage() {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
   const [activeOrders, setActiveOrders] = useState([]);
+
+  // Location & Address State
+  const [userAddresses, setUserAddresses] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,30 +28,60 @@ function HomePage() {
       const user = JSON.parse(storedUser);
       setUserData(user);
       loadActiveOrders(user.user_id);
-    }
-    loadProducts();
-    loadSellers();
-
-    const handleLocationChange = () => {
+      loadUserAddresses(user.user_id);
+    } else {
+      // Misafir kullanıcı için varsayılan ürünleri yükle (konumsuz)
       loadProducts();
-    };
-
-    window.addEventListener('locationChanged', handleLocationChange);
-    return () => window.removeEventListener('locationChanged', handleLocationChange);
+    }
+    loadSellers();
   }, []);
 
-  const loadProducts = async () => {
+  // Adres değiştiğinde ürünleri yeniden yükle
+  useEffect(() => {
+    if (selectedAddress) {
+      loadProducts(selectedAddress);
+    } else if (userData) {
+      // Kullanıcı giriş yapmış ama adresi yoksa
+      loadProducts();
+    }
+  }, [selectedAddress]);
+
+  const loadUserAddresses = async (userId) => {
+    try {
+      const addresses = await api.addresses.list(userId);
+      setUserAddresses(addresses);
+
+      if (addresses.length > 0) {
+        // Varsayılan olarak ilk adresi seç
+        setSelectedAddress(addresses[0]);
+      } else {
+        // Adresi yoksa ürünleri konumsuz yükle
+        loadProducts();
+      }
+    } catch (error) {
+      console.error("Adresler yüklenirken hata:", error);
+    }
+  };
+
+  const loadProducts = async (address = null) => {
     try {
       const filters = {};
       if (userData?.role === "seller" && userData?.is_seller_approved) {
         filters.seller_id = userData.user_id;
       }
 
-      const storedLocation = localStorage.getItem('userLocation');
-      if (storedLocation) {
-        const { lat, lon } = JSON.parse(storedLocation);
-        filters.user_lat = lat;
-        filters.user_lon = lon;
+      // Seçili adres varsa koordinatlarını kullan
+      if (address) {
+        filters.user_lat = address.latitude;
+        filters.user_lon = address.longitude;
+      } else {
+        // Yoksa localStorage'dan bak (eski yöntem, yedek olarak)
+        const storedLocation = localStorage.getItem('userLocation');
+        if (storedLocation) {
+          const { lat, lon } = JSON.parse(storedLocation);
+          filters.user_lat = lat;
+          filters.user_lon = lon;
+        }
       }
 
       const productsData = await api.products.list(filters);
@@ -80,6 +116,11 @@ function HomePage() {
     setSelectedTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleAddressSelect = (address) => {
+    setSelectedAddress(address);
+    setShowAddressModal(false);
   };
 
   const filteredProducts = products
@@ -328,9 +369,36 @@ function HomePage() {
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
+
+            {/* Address Selection */}
+            {userData && (
+              <div className="card p-6 sticky top-24">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span>📍</span>
+                  <span>Teslimat Adresi</span>
+                </h2>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 mb-3">
+                  {selectedAddress ? (
+                    <>
+                      <p className="font-bold text-gray-800">{selectedAddress.city}</p>
+                      <p className="text-sm text-gray-600 line-clamp-2">{selectedAddress.description || selectedAddress.street}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">Adres seçilmedi</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowAddressModal(true)}
+                  className="btn-outline w-full text-sm"
+                >
+                  Adres Değiştir
+                </button>
+              </div>
+            )}
+
             {/* Order Tracking */}
             {userData?.role === "customer" && activeOrders.length > 0 && (
-              <div className="card p-6 sticky top-24">
+              <div className="card p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <span>📦</span>
                   <span>Aktif Siparişler</span>
@@ -359,7 +427,7 @@ function HomePage() {
             )}
 
             {/* Trending Products */}
-            <div className="card p-6 sticky top-24">
+            <div className="card p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <span>🔥</span>
                 <span>Trend Ürünler</span>
@@ -413,6 +481,65 @@ function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Address Selection Modal */}
+      {showAddressModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setShowAddressModal(false)}
+        >
+          <div
+            className="card max-w-md w-full p-6 animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Teslimat Adresi Seç</h3>
+              <button onClick={() => setShowAddressModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto mb-4">
+              {userAddresses.length > 0 ? (
+                userAddresses.map(addr => (
+                  <div
+                    key={addr.address_id}
+                    onClick={() => handleAddressSelect(addr)}
+                    className={`p-4 rounded-xl border cursor-pointer transition ${selectedAddress?.address_id === addr.address_id
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">📍</span>
+                      <span className="font-bold text-gray-800">{addr.city}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{addr.neighbourhood}</p>
+                    <p className="text-xs text-gray-500 line-clamp-1">{addr.street}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">Kayıtlı adresiniz yok.</p>
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="btn-primary text-sm"
+                  >
+                    + Yeni Adres Ekle
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {userAddresses.length > 0 && (
+              <button
+                onClick={() => navigate('/profile')}
+                className="btn-outline w-full text-sm"
+              >
+                + Yeni Adres Ekle
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick View Modal */}
       {quickViewProduct && (

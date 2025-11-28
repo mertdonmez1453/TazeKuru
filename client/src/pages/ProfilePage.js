@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
@@ -18,8 +18,12 @@ function ProfilePage() {
     city: "",
     street: "",
     neighbourhood: "",
-    description: ""
+    description: "",
+    latitude: null,
+    longitude: null
   });
+
+  const addressInputRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +43,66 @@ function ProfilePage() {
       navigate("/login");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (showAddressForm && window.google && addressInputRef.current) {
+      const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ['address'],
+        componentRestrictions: { country: 'tr' }
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          alert("Lütfen listeden bir adres seçin.");
+          return;
+        }
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+
+        // Adres bileşenlerini ayrıştır
+        let city = "";
+        let district = "";
+        let neighbourhood = "";
+        let street = "";
+        let route = "";
+        let streetNumber = "";
+
+        place.address_components.forEach(component => {
+          const types = component.types;
+          if (types.includes('administrative_area_level_1')) {
+            city = component.long_name;
+          }
+          if (types.includes('administrative_area_level_2')) {
+            district = component.long_name;
+          }
+          if (types.includes('neighborhood')) {
+            neighbourhood = component.long_name;
+          }
+          if (types.includes('route')) {
+            route = component.long_name;
+          }
+          if (types.includes('street_number')) {
+            streetNumber = component.long_name;
+          }
+        });
+
+        street = `${route} ${streetNumber}`.trim();
+        if (!street) street = place.formatted_address.split(',')[0];
+
+        setAddressForm(prev => ({
+          ...prev,
+          city: city || district,
+          neighbourhood: neighbourhood || district,
+          street: street,
+          latitude: lat,
+          longitude: lng,
+          description: place.formatted_address // Tam adresi açıklama kısmına koyalım
+        }));
+      });
+    }
+  }, [showAddressForm]);
 
   const fetchAddresses = async (userId) => {
     try {
@@ -72,6 +136,11 @@ function ProfilePage() {
 
   const handleAddAddress = async (e) => {
     e.preventDefault();
+    if (!addressForm.latitude || !addressForm.longitude) {
+      alert("Lütfen haritadan geçerli bir adres seçin.");
+      return;
+    }
+
     try {
       await api.addresses.create({
         user_id: userData.user_id,
@@ -79,7 +148,7 @@ function ProfilePage() {
       });
       alert("✅ Adres eklendi!");
       setShowAddressForm(false);
-      setAddressForm({ city: "", street: "", neighbourhood: "", description: "" });
+      setAddressForm({ city: "", street: "", neighbourhood: "", description: "", latitude: null, longitude: null });
       fetchAddresses(userData.user_id);
     } catch (err) {
       alert("Adres eklenemedi: " + err.message);
@@ -291,6 +360,16 @@ function ProfilePage() {
           {/* Address Form */}
           {showAddressForm && (
             <form onSubmit={handleAddAddress} className="card-glass p-6 mb-6 space-y-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adres Ara (Google Maps)</label>
+                <input
+                  ref={addressInputRef}
+                  type="text"
+                  placeholder="Adresinizi arayın..."
+                  className="input-modern w-full"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
@@ -299,6 +378,7 @@ function ProfilePage() {
                   value={addressForm.city}
                   onChange={e => setAddressForm({ ...addressForm, city: e.target.value })}
                   required
+                  readOnly // Google Maps'ten gelsin
                 />
                 <input
                   type="text"
@@ -307,6 +387,7 @@ function ProfilePage() {
                   value={addressForm.neighbourhood}
                   onChange={e => setAddressForm({ ...addressForm, neighbourhood: e.target.value })}
                   required
+                  readOnly // Google Maps'ten gelsin
                 />
               </div>
               <input
@@ -316,9 +397,10 @@ function ProfilePage() {
                 value={addressForm.street}
                 onChange={e => setAddressForm({ ...addressForm, street: e.target.value })}
                 required
+                readOnly // Google Maps'ten gelsin
               />
               <textarea
-                placeholder="Adres Tarifi / Detay"
+                placeholder="Adres Tarifi / Detay (Daire No, Kat vb.)"
                 className="input-modern"
                 rows="3"
                 value={addressForm.description}

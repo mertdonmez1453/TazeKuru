@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
-import AddressAutocomplete from "./AddressAutocomplete";
 
 function Layout({ children }) {
     const [userData, setUserData] = useState(null);
@@ -50,11 +49,6 @@ function Layout({ children }) {
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
-    const handleAddressSelect = (locationData) => {
-        localStorage.setItem('userLocation', JSON.stringify(locationData));
-        window.dispatchEvent(new Event('locationChanged'));
-    };
-
     if (!showNavbar) {
         return <>{children}</>;
     }
@@ -74,8 +68,6 @@ function Layout({ children }) {
                         </button>
 
                         <div className="hidden md:flex items-center space-x-4">
-                            <AddressAutocomplete onSelect={handleAddressSelect} />
-
                             {userData?.role === "seller" && userData?.is_seller_approved ? (
                                 <>
                                     <button onClick={() => navigate("/sell")} className="btn-primary px-4 py-2 text-sm">
