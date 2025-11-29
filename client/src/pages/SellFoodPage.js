@@ -10,32 +10,44 @@ function SellFoodPage() {
     quantity: "",
     photo: "",
   });
+
+  const [allTags, setAllTags] = useState([]);        // 🔥 Tüm tagler
+  const [selectedTags, setSelectedTags] = useState([]); // 🔥 Seçili tagler
+
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Kullanıcı + Tagleri Yükle
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      setUserData(user);
-      // Role kontrolü veritabanında sütun olmadığı için şimdilik kaldırıldı veya basitleştirildi
-      // Gerçek uygulamada: if (user.role !== 'seller') ...
-    } else {
-      navigate("/login");
-    }
-  }, [navigate]);
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) return navigate("/login");
+
+    const user = JSON.parse(storedUser);
+    setUserData(user);
+
+    // 🔥 TAGLERİ YÜKLE
+    api.tags.list().then(setAllTags);
+  }, []);
+
+  // Tag seçme toggle
+  const toggleTag = (tagName) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (!userData || !userData.user_id) {
-        throw new Error("Kullanıcı bilgisi bulunamadı. Lütfen sayfayı yenileyin.");
-      }
+      if (!userData?.user_id) throw new Error("Kullanıcı bulunamadı!");
 
-      await api.products.create({
+      // 1️⃣ ÜRÜNÜ OLUŞTUR
+      const created = await api.products.create({
         seller_id: userData.user_id,
         name: formData.name,
         description: formData.description,
@@ -43,6 +55,14 @@ function SellFoodPage() {
         quantity: parseInt(formData.quantity),
         photo: formData.photo || null,
       });
+
+      const productId = created.product_id;
+      if (!productId) throw new Error("Ürün ID alınamadı!");
+
+      // 2️⃣ SEÇİLEN TAGLERİ EKLE
+      if (selectedTags.length > 0) {
+        await api.products.addTags(productId, selectedTags);
+      }
 
       alert("Yemek başarıyla eklendi!");
       navigate("/home");
@@ -72,6 +92,8 @@ function SellFoodPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* Yemek adı */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Yemek Adı *
@@ -82,11 +104,12 @@ function SellFoodPage() {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Örn: Ev Yapımı Börek"
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2"
+                placeholder="Ev Yapımı Su Böreği"
               />
             </div>
 
+            {/* Açıklama */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Açıklama *
@@ -95,13 +118,14 @@ function SellFoodPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                required
                 rows={4}
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Yemeğiniz hakkında detaylı bilgi verin..."
+                required
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2"
+                placeholder="Tereyağlı ev yapımı su böreği..."
               />
             </div>
 
+            {/* Fiyat & Miktar */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -115,11 +139,9 @@ function SellFoodPage() {
                   required
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="0.00"
+                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Miktar *
@@ -131,12 +153,12 @@ function SellFoodPage() {
                   onChange={handleChange}
                   required
                   min="1"
-                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="1"
+                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2"
                 />
               </div>
             </div>
 
+            {/* Fotoğraf */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Fotoğraf URL
@@ -146,30 +168,53 @@ function SellFoodPage() {
                 name="photo"
                 value={formData.photo}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="https://example.com/image.jpg"
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg focus:ring-2"
               />
-              <p className="mt-1 text-sm text-gray-500">
-                Yemeğinizin fotoğrafının URL'sini girin
-              </p>
             </div>
 
+            {/* 🔥 TAG SEÇİMİ */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Kategoriler / Tagler
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                {allTags.map((t) => (
+                  <button
+                    key={t.tag_id}
+                    type="button"
+                    onClick={() => toggleTag(t.tag_name)}
+                    className={`px-3 py-1 rounded-full text-sm border transition ${
+                      selectedTags.includes(t.tag_name)
+                        ? "bg-orange-500 text-white border-orange-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {t.tag_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Butonlar */}
             <div className="flex space-x-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-orange-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-orange-600 text-white py-3 rounded-lg font-medium hover:bg-orange-700 transition"
               >
                 {loading ? "Yükleniyor..." : "Yemek Ekle"}
               </button>
+
               <button
                 type="button"
                 onClick={() => navigate("/home")}
-                className="flex-1 bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-medium hover:bg-gray-300 transition"
+                className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-medium hover:bg-gray-300 transition"
               >
                 İptal
               </button>
             </div>
+
           </form>
         </div>
       </div>

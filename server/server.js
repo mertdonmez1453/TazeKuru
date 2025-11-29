@@ -10,7 +10,7 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "root",
+  password: process.env.DB_PASSWORD || "selAm07rst+",
   database: process.env.DB_NAME || "tazekuru_db",
   port: process.env.DB_PORT || 3306
 });
@@ -109,54 +109,114 @@ app.post("/api/auth/login", (req, res) => {
 // --- PRODUCT ENDPOINTS ---
 
 // Tüm Ürünleri Getir (Filtreleme ile)
+// Backend - server.js içindeki /api/products endpoint'ini değiştir
+
+// Backend - server.js içindeki /api/products endpoint'ini değiştir
+
+// Backend - server.js içindeki /api/products endpoint'ini değiştir
+
+// Backend - server.js içindeki /api/products endpoint'ini değiştir
+
 app.get("/api/products", (req, res) => {
-  const { seller_id, user_lat, user_lon } = req.query;
+  const { seller_id, user_lat, user_lon, tag } = req.query;
+
+  // Konum parametrelerini kontrol et
+  const hasLocation = user_lat && user_lon && user_lat != 0 && user_lon != 0;
 
   let sql = `
-    SELECT p.*, u.first_name, u.last_name, u.rating as seller_rating,
-           a.latitude, a.longitude,
-           ( 6371 * acos( cos( radians(?) ) * cos( radians( a.latitude ) ) * cos( radians( a.longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( a.latitude ) ) ) ) AS distance
-    FROM product p 
-    JOIN users u ON p.seller_id = u.user_id 
+    SELECT 
+      p.*,
+      u.first_name,
+      u.last_name,
+      u.rating as seller_rating,
+      MAX(a.latitude) as latitude,
+      MAX(a.longitude) as longitude,
+      GROUP_CONCAT(DISTINCT t.tag_name) AS tags
+      ${hasLocation ? `, 
+      (
+        6371 * acos(
+          cos(radians(?)) * cos(radians(COALESCE(MAX(a.latitude), 0))) *
+          cos(radians(COALESCE(MAX(a.longitude), 0)) - radians(?)) +
+          sin(radians(?)) * sin(radians(COALESCE(MAX(a.latitude), 0)))
+        )
+      ) AS distance` : ''}
+    FROM product p
+    JOIN users u ON p.seller_id = u.user_id
     LEFT JOIN address a ON u.user_id = a.user_id
+    LEFT JOIN product_tags pt ON pt.product_id = p.product_id
+    LEFT JOIN tags t ON t.tag_id = pt.tag_id
     WHERE p.is_available = 1
   `;
 
-  const queryParams = [user_lat || 0, user_lon || 0, user_lat || 0];
-
-  // Eğer satıcı ID ile filtreleme varsa
-  if (seller_id) {
-    sql += " AND p.seller_id = ?";
-    queryParams.push(seller_id);
+  const params = [];
+  
+  // Konum parametrelerini sadece gerektiğinde ekle
+  if (hasLocation) {
+    params.push(user_lat, user_lon, user_lat);
   }
 
-  // Eğer konum varsa 6km filtrele
-  if (user_lat && user_lon) {
-    sql += " HAVING distance <= 6";
+  // Tag filtresi - TÜM seçilen taglere sahip olmalı
+  if (tag) {
+    const tags = tag.split(",").map(t => t.trim()).filter(Boolean);
+    if (tags.length > 0) {
+      const placeholders = tags.map(() => "?").join(",");
+      
+      // 🔥 DÜZELTME: Seçilen TÜM taglere sahip ürünler
+      sql += `
+        AND (
+          SELECT COUNT(DISTINCT t2.tag_name)
+          FROM product_tags pt2
+          JOIN tags t2 ON pt2.tag_id = t2.tag_id
+          WHERE pt2.product_id = p.product_id 
+          AND t2.tag_name IN (${placeholders})
+        ) = ?
+      `;
+      params.push(...tags, tags.length);
+    }
+  }
+
+  // Satıcı filtresi
+  if (seller_id) {
+    sql += " AND p.seller_id = ?";
+    params.push(seller_id);
+  }
+
+  sql += " GROUP BY p.product_id";
+
+  // Mesafe filtresi sadece konum verildiğinde
+  if (hasLocation) {
+    sql += " HAVING distance <= 7";
   }
 
   sql += " ORDER BY p.upload_date DESC";
 
-  db.query(sql, queryParams, (err, data) => {
+  console.log("🔍 SQL Query:", sql);
+  console.log("🔍 Parameters:", params);
+
+  db.query(sql, params, (err, data) => {
     if (err) {
-      console.error("Get Products Error:", err);
-      return res.status(500).json({ error: "Ürünler getirilemedi." });
+      console.error("❌ Products SQL Error:", err);
+      console.error("❌ SQL:", sql);
+      console.error("❌ Params:", params);
+      return res.status(500).json({ error: "Ürünler getirilemedi", details: err.message });
     }
 
-    // Frontend formatına uygun hale getir (users objesi içine satıcı bilgisini koy)
-    const formattedData = data.map(item => ({
-      ...item,
+    console.log(`✅ ${data.length} ürün bulundu`);
+
+    const formatted = data.map(p => ({
+      ...p,
+      tags: p.tags ? p.tags.split(",") : [],
       users: {
-        first_name: item.first_name,
-        last_name: item.last_name,
-        rating: item.seller_rating
-      },
-      distance: item.distance // Mesafeyi de dön
+        first_name: p.first_name,
+        last_name: p.last_name,
+        rating: p.seller_rating
+      }
     }));
 
-    res.json(formattedData);
+    res.json(formatted);
   });
 });
+
 
 // Tek Ürün Getir
 app.get("/api/products/:id", (req, res) => {
@@ -220,6 +280,86 @@ app.get("/api/sellers/:id", (req, res) => {
 });
 
 // --- ORDER ENDPOINTS ---
+// Satıcının Siparişleri
+app.get("/api/orders/seller-orders", (req, res) => {
+  const sellerId = req.query.seller_id;
+  if (!sellerId) return res.status(400).json({ error: "Seller ID gerekli" });
+
+  const sql = `
+    SELECT 
+      o.*,
+      u.first_name AS buyer_name,
+      u.last_name AS buyer_lastname
+    FROM orders o
+    JOIN users u ON o.buyer_id = u.user_id
+    WHERE o.seller_id = ?
+    ORDER BY o.order_date DESC
+  `;
+
+  db.query(sql, [sellerId], (err, data) => {
+    if (err) {
+      console.error("Satıcı siparişleri hata:", err);
+      return res.status(500).json({ error: "Satıcı siparişleri getirilemedi." });
+    }
+    res.json(data);
+  });
+});
+// Sipariş Durumu Güncelle (Satıcı: hazırlanıyor / teslim edildi)
+app.put("/api/orders/:id/status", (req, res) => {
+  const orderId = req.params.id;
+  const { status } = req.body;
+
+  const allowedStatuses = ["preparing", "delivered"];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: "Geçersiz sipariş durumu" });
+  }
+
+  // Önce siparişi alalım ki müşteri id'sini öğrenelim
+  const getOrderSql = "SELECT * FROM orders WHERE order_id = ?";
+
+  db.query(getOrderSql, [orderId], (err, result) => {
+    if (err) {
+      console.error("Order fetch error:", err);
+      return res.status(500).json({ error: "Sipariş bilgisi alınamadı." });
+    }
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Sipariş bulunamadı." });
+    }
+
+    const order = result[0];
+
+    const updateSql = "UPDATE orders SET status = ? WHERE order_id = ?";
+    db.query(updateSql, [status, orderId], (err2, updateRes) => {
+      if (err2) {
+        console.error("Status update error:", err2);
+        return res.status(500).json({ error: "Sipariş durumu güncellenemedi." });
+      }
+
+      // Müşteriye bildirim
+      let notifMsg;
+      if (status === "preparing") {
+        notifMsg = `Siparişiniz hazırlanıyor! Sipariş ID: ${orderId}`;
+      } else if (status === "delivered") {
+        notifMsg = `Siparişiniz teslim edildi! Afiyet olsun 😋 Sipariş ID: ${orderId}`;
+      }
+
+      const notifSql = "INSERT INTO notifications (user_id, message) VALUES (?, ?)";
+      db.query(notifSql, [order.buyer_id, notifMsg], (err3) => {
+        if (err3) {
+          console.error("Notification error:", err3);
+          // Bildirim patlasa bile sipariş güncellemesi başarılı kabul edelim
+        }
+
+        res.json({
+          message: "Sipariş durumu güncellendi.",
+          status
+        });
+      });
+    });
+  });
+});
+
+
 
 // Sipariş Oluştur
 app.post("/api/orders", (req, res) => {
@@ -626,3 +766,57 @@ const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor...`);
 });
+
+
+// Tüm tagleri listele
+
+app.get("/api/tags", (req, res) => {
+  const sql = "SELECT * FROM tags";
+  db.query(sql, (err, data) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(data);
+  });
+});
+
+// Bir ürünün taglerini almak
+
+app.get("/api/products/:id/tags", (req, res) => {
+  const productId = req.params.id;
+
+  const sql = `
+    SELECT t.tag_name 
+    FROM product_tags pt
+    JOIN tags t ON pt.tag_id = t.tag_id
+    WHERE pt.product_id = ?
+  `;
+
+  db.query(sql, [productId], (err, data) => {
+    if (err) return res.status(500).json({ error: err });
+    res.json(data.map(row => row.tag_name));
+  });
+});
+
+
+
+//Ürüne tag ekleme (SellFoodPage için)
+
+app.post("/api/products/:id/tags", (req, res) => {
+  const productId = req.params.id;
+  const { tags } = req.body; // ["Vegan","Glutensiz"]
+
+  const insertSql = `
+    INSERT INTO product_tags (product_id, tag_id)
+    VALUES (?, (SELECT tag_id FROM tags WHERE tag_name = ?))
+  `;
+
+  tags.forEach(tag => {
+    db.query(insertSql, [productId, tag]);
+  });
+
+  res.json({ message: "Tags updated" });
+});
+
+//Listeleme endpoint’ine bunu ekliyoruz:
+
+
+

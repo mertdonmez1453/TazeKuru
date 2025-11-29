@@ -14,6 +14,8 @@ function HomePage() {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
   const [activeOrders, setActiveOrders] = useState([]);
+  const [tags, setTags] = useState([]);
+  const safeProducts = Array.isArray(products) ? products : [];
 
   // Location & Address State
   const [userAddresses, setUserAddresses] = useState([]);
@@ -21,6 +23,11 @@ function HomePage() {
   const [showAddressModal, setShowAddressModal] = useState(false);
 
   const navigate = useNavigate();
+
+  // Ürün tagleri için
+  useEffect(() => {
+    api.tags.list().then(setTags);
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -30,21 +37,21 @@ function HomePage() {
       loadActiveOrders(user.user_id);
       loadUserAddresses(user.user_id);
     } else {
-      // Misafir kullanıcı için varsayılan ürünleri yükle (konumsuz)
-      loadProducts();
+      // 🔥 DÜZELTME: Misafir kullanıcı için hemen ürünleri yükle
+      loadProducts(null);
     }
     loadSellers();
   }, []);
 
-  // Adres değiştiğinde ürünleri yeniden yükle
+  // 🔥 DÜZELTME: Tag değiştiğinde de ürünleri yeniden yükle
   useEffect(() => {
-    if (selectedAddress) {
+    if (userData) {
       loadProducts(selectedAddress);
-    } else if (userData) {
-      // Kullanıcı giriş yapmış ama adresi yoksa
-      loadProducts();
+    } else {
+      // Misafir kullanıcı için
+      loadProducts(null);
     }
-  }, [selectedAddress]);
+  }, [selectedTags, selectedAddress]);
 
   const loadUserAddresses = async (userId) => {
     try {
@@ -52,45 +59,51 @@ function HomePage() {
       setUserAddresses(addresses);
 
       if (addresses.length > 0) {
-        // Varsayılan olarak ilk adresi seç
         setSelectedAddress(addresses[0]);
       } else {
-        // Adresi yoksa ürünleri konumsuz yükle
-        loadProducts();
+        // 🔥 DÜZELTME: Adresi yoksa da ürünleri yükle (konum filtresiz)
+        loadProducts(null);
       }
     } catch (error) {
       console.error("Adresler yüklenirken hata:", error);
+      loadProducts(null);
     }
   };
 
   const loadProducts = async (address = null) => {
-    try {
-      const filters = {};
-      if (userData?.role === "seller" && userData?.is_seller_approved) {
-        filters.seller_id = userData.user_id;
-      }
+  try {
+    const filters = {};
+    
+    console.log("🔍 Filters:", filters); // EKLE
+    console.log("📍 Address:", address); // EKLE
+    console.log("🏷️ Selected Tags:", selectedTags); // EKLE
 
-      // Seçili adres varsa koordinatlarını kullan
-      if (address) {
-        filters.user_lat = address.latitude;
-        filters.user_lon = address.longitude;
-      } else {
-        // Yoksa localStorage'dan bak (eski yöntem, yedek olarak)
-        const storedLocation = localStorage.getItem('userLocation');
-        if (storedLocation) {
-          const { lat, lon } = JSON.parse(storedLocation);
-          filters.user_lat = lat;
-          filters.user_lon = lon;
-        }
-      }
-
-      const productsData = await api.products.list(filters);
-      setProducts(productsData && productsData.length > 0 ? productsData : []);
-    } catch (error) {
-      console.error("Ürünler yüklenirken hata:", error);
-      setProducts(mockData.products);
+    if (selectedTags.length > 0) {
+      filters.tag = selectedTags.join(",");
     }
-  };
+
+    if (userData?.role === "seller" && userData?.is_seller_approved) {
+      filters.seller_id = userData.user_id;
+    }
+
+    if (address && address.latitude && address.longitude) {
+      filters.user_lat = address.latitude;
+      filters.user_lon = address.longitude;
+    }
+
+    console.log("📤 API'ye gönderilen filters:", filters); // EKLE
+
+    const result = await api.products.list(filters);
+    
+    console.log("📥 API'den dönen sonuç:", result); // EKLE
+    console.log("📊 Ürün sayısı:", result?.length); // EKLE
+    
+    setProducts(result);
+  } catch (err) {
+    console.error("❌ Ürün hata:", err);
+    setProducts([]);
+  }
+};
 
   const loadSellers = async () => {
     try {
@@ -112,26 +125,20 @@ function HomePage() {
     }
   };
 
-  const toggleTag = (tag) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
-  };
-
   const handleAddressSelect = (address) => {
     setSelectedAddress(address);
     setShowAddressModal(false);
   };
 
-  const filteredProducts = products
-    .filter((product) => {
+  // 🔥 DÜZELTME: Frontend filtreleme sadece arama için
+  const filteredProducts = safeProducts
+    .filter(p => {
+      // Sadece arama filtresi - tag filtresi backend'de yapılıyor
       const matchesSearch =
-        product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = !selectedCategory || product.category_id === selectedCategory;
-      const matchesTags = selectedTags.length === 0 ||
-        (product.tags && selectedTags.some(tag => product.tags.includes(tag)));
-      return matchesSearch && matchesCategory && matchesTags;
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesSearch;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -145,8 +152,12 @@ function HomePage() {
       }
     });
 
-  const featuredProducts = products.filter(p => p.featured).slice(0, 3);
-  const trendingProducts = products.sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 4);
+  const featuredProducts = safeProducts.filter(p => p.featured).slice(0, 3);
+
+  const trendingProducts = safeProducts
+    .slice()
+    .sort((a, b) => (b.sales || 0) - (a.sales || 0))
+    .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -187,18 +198,6 @@ function HomePage() {
             >
               🍽️ Tümü
             </button>
-            {mockData.categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap transition ${selectedCategory === cat.id
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-              >
-                {cat.icon} {cat.name}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -281,16 +280,22 @@ function HomePage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {mockData.tags.map(tag => (
+            {tags.map(tag => (
               <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm transition ${selectedTags.includes(tag)
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                key={tag.tag_id}
+                onClick={() =>
+                  setSelectedTags(prev =>
+                    prev.includes(tag.tag_name)
+                      ? prev.filter(t => t !== tag.tag_name)
+                      : [...prev, tag.tag_name]
+                  )
+                }
+                className={`px-3 py-1 rounded-full text-sm transition ${selectedTags.includes(tag.tag_name)
+                  ? "bg-emerald-500 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
               >
-                {tag}
+                {tag.tag_name}
               </button>
             ))}
           </div>
@@ -351,7 +356,7 @@ function HomePage() {
                           <span className="text-sm text-gray-600">👨‍🍳 {product.users.first_name}</span>
                           <div className="flex items-center gap-1">
                             <span className="text-yellow-500">⭐</span>
-                            <span className="text-sm font-medium text-gray-700">{product.users.rating.toFixed(1)}</span>
+                            <span className="text-sm font-medium text-gray-700">{Number(product.users?.rating ?? 0).toFixed(1)}</span>
                           </div>
                         </div>
                       )}
@@ -369,7 +374,6 @@ function HomePage() {
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-
             {/* Address Selection */}
             {userData && (
               <div className="card p-6 sticky top-24">
@@ -470,7 +474,7 @@ function HomePage() {
                       <p className="font-semibold text-gray-800 text-sm">{seller.first_name} {seller.last_name}</p>
                       <div className="flex items-center gap-1">
                         <span className="text-yellow-500 text-xs">⭐</span>
-                        <span className="text-xs text-gray-600">{seller.rating?.toFixed(1)}</span>
+                        <span className="text-xs text-gray-600">{Number(seller.rating || 0).toFixed(1)}</span>
                       </div>
                       <p className="text-xs text-emerald-600">{seller.badge}</p>
                     </div>
@@ -504,8 +508,8 @@ function HomePage() {
                     key={addr.address_id}
                     onClick={() => handleAddressSelect(addr)}
                     className={`p-4 rounded-xl border cursor-pointer transition ${selectedAddress?.address_id === addr.address_id
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-gray-200 hover:bg-gray-50'
                       }`}
                   >
                     <div className="flex items-center gap-2 mb-1">

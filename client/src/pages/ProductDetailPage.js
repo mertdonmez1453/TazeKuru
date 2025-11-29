@@ -227,7 +227,7 @@ function ProductDetailPage() {
                     <div className="flex items-center mt-1">
                       <span className="text-yellow-500 text-sm">★</span>
                       <span className="text-sm text-gray-600 ml-1">
-                        {seller.rating.toFixed(1)}
+                        {Number(seller.rating || 0).toFixed(1)}
                       </span>
                     </div>
                   )}

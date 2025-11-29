@@ -1,13 +1,5 @@
 // Mock Data Generator for TazeKuru
 export const mockData = {
-    categories: [
-        { id: 1, name: "Ev Yemekleri", icon: "🍲", color: "emerald" },
-        { id: 2, name: "Hamur İşleri", icon: "🥐", color: "amber" },
-        { id: 3, name: "Tatlılar", icon: "🍰", color: "pink" },
-        { id: 4, name: "Salatalar", icon: "🥗", color: "lime" },
-        { id: 5, name: "Çorbalar", icon: "🍜", color: "orange" },
-        { id: 6, name: "Kahvaltılık", icon: "🍳", color: "yellow" },
-    ],
 
     tags: ["Glutensiz", "Vegan", "Organik", "Ev Yapımı", "Taze", "Geleneksel", "Sıcak", "Soğuk"],
 

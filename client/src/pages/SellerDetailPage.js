@@ -127,7 +127,7 @@ function SellerDetailPage() {
                 <div className="flex items-center">
                   <span className="text-yellow-500 text-xl">⭐</span>
                   <span className="text-lg text-gray-700 ml-2 font-semibold">
-                    {seller.rating?.toFixed(1) || "0.0"}
+                    {Number(seller.rating ?? 0).toFixed(1)}
                   </span>
                 </div>
                 <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">

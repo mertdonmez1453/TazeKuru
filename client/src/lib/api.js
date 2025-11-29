@@ -1,6 +1,17 @@
 const API_URL = "http://localhost:8081/api";
 
 export const api = {
+
+    //Ürün tagleri için
+    tags: {
+        list: async () => {
+            const res = await fetch(`${API_URL}/tags`);
+            return res.json();
+        }
+    },
+
+
+
     // Auth
     auth: {
         login: async (credentials) => {
@@ -25,11 +36,24 @@ export const api = {
 
     // Products
     products: {
+        addTags: async (productId, tags) => {
+            return fetch(`${API_URL}/products/${productId}/tags`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tags })
+            }).then(r => r.json());
+        },
+
         list: async (filters = {}) => {
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await fetch(`${API_URL}/products?${queryParams}`);
-            if (!response.ok) throw new Error('Ürünler getirilemedi');
-            return response.json();
+            const params = new URLSearchParams();
+
+            if (filters.seller_id) params.append("seller_id", filters.seller_id);
+            if (filters.user_lat) params.append("user_lat", filters.user_lat);
+            if (filters.user_lon) params.append("user_lon", filters.user_lon);
+            if (filters.tag) params.append("tag", filters.tag);
+
+            const response = await fetch(`${API_URL}/products?` + params.toString());
+            return await response.json();
         },
         get: async (id) => {
             const response = await fetch(`${API_URL}/products/${id}`);
@@ -63,29 +87,48 @@ export const api = {
 
     // Orders
     orders: {
-        create: async (orderData) => {
-            const response = await fetch(`${API_URL}/orders`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData),
-            });
-            if (!response.ok) throw new Error('Sipariş oluşturulamadı');
-            return response.json();
-        },
-        listMyOrders: async (userId) => {
-            const response = await fetch(`${API_URL}/orders/my-orders?user_id=${userId}`);
-            if (!response.ok) throw new Error('Siparişler getirilemedi');
-            return response.json();
-        },
-        pay: async (orderId) => {
-            const response = await fetch(`${API_URL}/orders/${orderId}/pay`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-            });
-            if (!response.ok) throw new Error('Ödeme işlemi başarısız');
-            return response.json();
-        }
+    create: async (orderData) => {
+        const response = await fetch(`${API_URL}/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(orderData),
+        });
+        if (!response.ok) throw new Error("Sipariş oluşturulamadı");
+        return response.json();
     },
+
+    listMyOrders: async (userId) => {
+        const response = await fetch(`${API_URL}/orders/my-orders?user_id=${userId}`);
+        if (!response.ok) throw new Error("Siparişler getirilemedi");
+        return response.json();
+    },
+
+    listSellerOrders: async (sellerId) => {
+        const res = await fetch(`${API_URL}/orders/seller-orders?seller_id=${sellerId}`);
+        if (!res.ok) throw new Error("Satıcı siparişleri getirilemedi");
+        return res.json();
+    },
+
+    pay: async (orderId) => {
+        const response = await fetch(`${API_URL}/orders/${orderId}/pay`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) throw new Error("Ödeme işlemi başarısız");
+        return response.json();
+    },
+
+    updateStatus: async (orderId, status) => {
+        const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+        });
+        if (!res.ok) throw new Error("Sipariş durumu güncellenemedi");
+        return res.json();
+    }
+},
+
 
     // Reviews
     reviews: {

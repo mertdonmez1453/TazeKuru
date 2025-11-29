@@ -70,14 +70,28 @@ function Layout({ children }) {
                         <div className="hidden md:flex items-center space-x-4">
                             {userData?.role === "seller" && userData?.is_seller_approved ? (
                                 <>
-                                    <button onClick={() => navigate("/sell")} className="btn-primary px-4 py-2 text-sm">
+                                    <button
+                                        onClick={() => navigate("/sell")}
+                                        className="btn-primary px-4 py-2 text-sm"
+                                    >
                                         <span className="flex items-center gap-2">
                                             <span>✨</span>
                                             <span>Yemek Sat</span>
                                         </span>
                                     </button>
-                                    <button onClick={() => navigate("/home")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
+
+                                    <button
+                                        onClick={() => navigate("/home")}
+                                        className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                    >
                                         🍴 Yemeklerim
+                                    </button>
+
+                                    <button
+                                        onClick={() => navigate("/seller-orders")}
+                                        className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                    >
+                                        📥 Gelen Siparişler
                                     </button>
                                 </>
                             ) : (
@@ -98,10 +112,10 @@ function Layout({ children }) {
                                 </>
                             )}
                             <button onClick={() => navigate("/messages")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
-                                💬
+                                💬 Mesajlar
                             </button>
                             <button onClick={() => navigate("/profile")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
-                                👤
+                                👤 Profil
                             </button>
                         </div>
 

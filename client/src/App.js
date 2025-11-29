@@ -13,6 +13,7 @@ import OrdersPage from "./pages/OrdersPage";
 import SellerRegistrationPage from "./pages/SellerRegistrationPage";
 import SellerDetailPage from "./pages/SellerDetailPage";
 import CartPage from "./pages/CartPage";
+import SellerOrdersPage from "./pages/SellerOrdersPage";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/seller-register" element={<SellerRegistrationPage />} />
           <Route path="/seller/:id" element={<SellerDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/seller-orders" element={<SellerOrdersPage />} />
         </Routes>
       </Layout>
     </Router>

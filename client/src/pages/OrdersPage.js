@@ -115,7 +115,7 @@ function OrdersPage() {
 
                   <div className="text-right">
                     <div className="text-3xl font-bold text-gradient-primary mb-2">
-                      {order.total_price.toFixed(2)} ₺
+                      {Number(order.total_price || 0).toFixed(2)} ₺
                     </div>
                     {getStatusBadge(order.status)}
                   </div>

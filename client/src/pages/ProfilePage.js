@@ -241,7 +241,7 @@ function ProfilePage() {
             <div className="text-center card-glass p-4">
               <div className="text-4xl mb-2">⭐</div>
               <div className="text-2xl font-bold text-gradient-primary">
-                {userData?.rating?.toFixed(1) || "0.0"}
+                {Number(userData?.rating ?? 0).toFixed(1)}
               </div>
               <div className="text-sm text-gray-600">Puan</div>
             </div>
