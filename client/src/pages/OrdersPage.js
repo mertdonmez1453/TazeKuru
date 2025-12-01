@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 
 function OrdersPage() {
   const [orders, setOrders] = useState([]);
+  const [orderItems, setOrderItems] = useState({}); // 🔥 Sipariş ürünlerini sakla
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -25,6 +26,14 @@ function OrdersPage() {
       setLoading(true);
       const ordersData = await api.orders.listMyOrders(userId);
       setOrders(ordersData || []);
+
+      // 🔥 Her sipariş için ürünleri yükle
+      const itemsData = {};
+      for (const order of ordersData || []) {
+        const items = await api.orders.getOrderItems(order.order_id);
+        itemsData[order.order_id] = items;
+      }
+      setOrderItems(itemsData);
     } catch (error) {
       console.error("Hata:", error);
     } finally {
@@ -34,18 +43,11 @@ function OrdersPage() {
 
   const handlePayment = async (orderId) => {
     try {
-      // Call API to update order status
       await api.orders.pay(orderId);
-
-      // Show success modal
       setShowSuccessModal(true);
-
-      // Reload orders to show new status
       if (userData) {
         await loadData(userData.user_id);
       }
-
-      // Hide modal after 3 seconds
       setTimeout(() => {
         setShowSuccessModal(false);
       }, 3000);
@@ -121,10 +123,42 @@ function OrdersPage() {
                   </div>
                 </div>
 
+                {/* 🔥 Siparişteki Ürünler */}
                 <div className="border-t border-gray-100 pt-4">
-                  <p className="text-sm text-gray-500 italic">
-                    Sipariş detayları yöneticinizde görüntülenebilir.
-                  </p>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Sipariş İçeriği:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {orderItems[order.order_id]?.map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => navigate(`/product/${item.product_id}`)}
+                        className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg hover:bg-emerald-50 transition cursor-pointer group"
+                      >
+                        {item.photo ? (
+                          <img
+                            src={item.photo}
+                            alt={item.product_name}
+                            className="w-16 h-16 object-cover rounded-lg group-hover:scale-105 transition"
+                            onError={(e) => {
+                              e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-gradient-to-br from-orange-200 to-amber-200 rounded-lg flex items-center justify-center">
+                            <span className="text-2xl">🍽️</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-800 truncate group-hover:text-emerald-600 transition">
+                            {item.product_name}
+                          </p>
+                          <p className="text-sm text-gray-500">Adet: {item.quantity}</p>
+                          <p className="text-sm font-bold text-emerald-600">
+                            {(Number(item.price) * Number(item.quantity)).toFixed(2)} ₺
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {order.status === "pending" && (

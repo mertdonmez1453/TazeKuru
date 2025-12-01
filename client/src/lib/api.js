@@ -36,6 +36,27 @@ export const api = {
 
     // Products
     products: {
+        // ürünü güncellemek için
+        update: async (id, data) => {
+            const res = await fetch(`${API_URL}/products/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error("Ürün güncellenemedi");
+            return res.json();
+        },
+
+
+        // ürün silmek için
+        delete: async (id) => {
+            const response = await fetch(`${API_URL}/products/${id}`, {
+                method: "DELETE"
+            });
+            if (!response.ok) throw new Error("Ürün silinemedi");
+            return response.json();
+        },
+
         addTags: async (productId, tags) => {
             return fetch(`${API_URL}/products/${productId}/tags`, {
                 method: "POST",
@@ -71,6 +92,59 @@ export const api = {
         }
     },
 
+
+    // Admin endpointleri
+
+    admin: {
+        getApplications: async () => {
+            const response = await fetch(`${API_URL}/admin/seller-applications`);
+            return response.json();
+        },
+
+        approve: async (id) => {
+            const response = await fetch(`${API_URL}/admin/seller-applications/${id}/approve`, {
+                method: 'PUT'
+            });
+            return response.json();
+        },
+
+        unapprove: async (id) => {
+            const response = await fetch(`${API_URL}/admin/seller-applications/${id}/unapprove`, {
+                method: 'PUT'
+            });
+            return response.json();
+        },
+
+        reject: async (id) => {
+            const response = await fetch(`${API_URL}/admin/seller-applications/${id}`, {
+                method: 'DELETE'
+            });
+            return response.json();
+        }
+    },
+
+    // application için endpoint
+    sellerApplications: {
+        apply: async (userId) => {
+            const response = await fetch(`${API_URL}/seller-applications`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ user_id: userId })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Başvuru yapılamadı');
+            }
+
+            return response.json();
+        }
+    },
+
+
+
     // Sellers
     sellers: {
         list: async () => {
@@ -87,47 +161,64 @@ export const api = {
 
     // Orders
     orders: {
-    create: async (orderData) => {
-        const response = await fetch(`${API_URL}/orders`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(orderData),
-        });
-        if (!response.ok) throw new Error("Sipariş oluşturulamadı");
-        return response.json();
-    },
+        create: async (orderData) => {
+            const response = await fetch(`${API_URL}/orders`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(orderData),
+            });
+            if (!response.ok) throw new Error("Sipariş oluşturulamadı");
+            return response.json();
+        },
+        create: async (orderData) => {
+            const response = await fetch(`${API_URL}/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(orderData)
+            });
+            if (!response.ok) throw new Error('Sipariş oluşturulamadı');
+            return response.json();
+        },
 
-    listMyOrders: async (userId) => {
-        const response = await fetch(`${API_URL}/orders/my-orders?user_id=${userId}`);
-        if (!response.ok) throw new Error("Siparişler getirilemedi");
-        return response.json();
-    },
+        listMyOrders: async (userId) => {
+            const response = await fetch(`${API_URL}/orders/my-orders?user_id=${userId}`);
+            if (!response.ok) throw new Error("Siparişler getirilemedi");
+            return response.json();
+        },
 
-    listSellerOrders: async (sellerId) => {
-        const res = await fetch(`${API_URL}/orders/seller-orders?seller_id=${sellerId}`);
-        if (!res.ok) throw new Error("Satıcı siparişleri getirilemedi");
-        return res.json();
-    },
+        getOrderItems: async (orderId) => {
+            const response = await fetch(`${API_URL}/orders/${orderId}/items`);
+            if (!response.ok) throw new Error('Sipariş detayları alınamadı');
+            return response.json();
+        },
 
-    pay: async (orderId) => {
-        const response = await fetch(`${API_URL}/orders/${orderId}/pay`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-        });
-        if (!response.ok) throw new Error("Ödeme işlemi başarısız");
-        return response.json();
-    },
+        listSellerOrders: async (sellerId) => {
+            const res = await fetch(`${API_URL}/orders/seller-orders?seller_id=${sellerId}`);
+            if (!res.ok) throw new Error("Satıcı siparişleri getirilemedi");
+            return res.json();
+        },
 
-    updateStatus: async (orderId, status) => {
-        const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
-        });
-        if (!res.ok) throw new Error("Sipariş durumu güncellenemedi");
-        return res.json();
-    }
-},
+        pay: async (orderId) => {
+            const response = await fetch(`${API_URL}/orders/${orderId}/pay`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (!response.ok) throw new Error("Ödeme işlemi başarısız");
+            return response.json();
+        },
+
+        updateStatus: async (orderId, status) => {
+            const res = await fetch(`${API_URL}/orders/${orderId}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status }),
+            });
+            if (!res.ok) throw new Error("Sipariş durumu güncellenemedi");
+            return res.json();
+        }
+    },
 
 
     // Reviews
@@ -248,5 +339,22 @@ export const api = {
             if (!response.ok) throw new Error('Güncellenemedi');
             return response.json();
         }
+    },
+
+    sellerApplications: {
+        apply: async (user_id) => {
+            const res = await fetch(`${API_URL}/seller-applications`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id })
+            });
+            return res.json();
+        }
     }
+
+
+
+
 };
+
+

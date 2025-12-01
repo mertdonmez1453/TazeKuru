@@ -17,7 +17,12 @@ function LoginPage() {
     try {
       const response = await api.auth.login({ email, password });
       localStorage.setItem('user', JSON.stringify(response.user));
-      navigate("/home");
+      // 🔥 Admin yönlendirme
+      if (response.user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/home");
+      }
     } catch (err) {
       setError(err.message || "Giriş yapılırken bir hata oluştu");
     } finally {

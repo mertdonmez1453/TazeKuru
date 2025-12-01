@@ -10,7 +10,7 @@ app.use(express.json());
 const db = mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "qqqqqqqq",
+  password: process.env.DB_PASSWORD || "123456",
   database: process.env.DB_NAME || "tazekuru_db",
   port: process.env.DB_PORT || 3306
 });
@@ -80,6 +80,25 @@ app.post("/api/auth/signup", (req, res) => {
     };
 
     res.status(201).json({ message: "Kayıt başarılı", user });
+    // 🔥 Eğer seller ise başvuru oluştur
+    if (role === "seller") {
+      db.query(
+        "INSERT INTO seller_applications (user_id, is_seller_approved) VALUES (?, 0)",
+        [userId],
+        (err2) => {
+          if (err2) {
+            console.error("Satıcı başvurusu oluşturulamadı:", err2);
+            // Hata olsa bile kullanıcı oluşturuldu, devam et
+          }
+        }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "Kayıt başarılı",
+      user_id: userId
+    });
   });
 });
 
@@ -109,12 +128,6 @@ app.post("/api/auth/login", (req, res) => {
 // --- PRODUCT ENDPOINTS ---
 
 // Tüm Ürünleri Getir (Filtreleme ile)
-// Backend - server.js içindeki /api/products endpoint'ini değiştir
-
-// Backend - server.js içindeki /api/products endpoint'ini değiştir
-
-// Backend - server.js içindeki /api/products endpoint'ini değiştir
-
 // Backend - server.js içindeki /api/products endpoint'ini değiştir
 
 app.get("/api/products", (req, res) => {
@@ -149,7 +162,7 @@ app.get("/api/products", (req, res) => {
   `;
 
   const params = [];
-  
+
   // Konum parametrelerini sadece gerektiğinde ekle
   if (hasLocation) {
     params.push(user_lat, user_lon, user_lat);
@@ -160,7 +173,7 @@ app.get("/api/products", (req, res) => {
     const tags = tag.split(",").map(t => t.trim()).filter(Boolean);
     if (tags.length > 0) {
       const placeholders = tags.map(() => "?").join(",");
-      
+
       // 🔥 DÜZELTME: Seçilen TÜM taglere sahip ürünler
       sql += `
         AND (
@@ -364,6 +377,10 @@ app.put("/api/orders/:id/status", (req, res) => {
 // Sipariş Oluştur
 app.post("/api/orders", (req, res) => {
   const { buyer_id, seller_id, total_price, items, address_id } = req.body; // items: [{product_id, quantity, price}]
+  const product_id = items[0]?.product_id; // 🔥 Tek ürün siparişi
+  if (!product_id) {
+    return res.status(400).json({ error: "product_id bulunamadı" });
+  }
 
   const getMaxIdSql = "SELECT MAX(order_id) as maxId FROM orders";
 
@@ -372,13 +389,14 @@ app.post("/api/orders", (req, res) => {
 
     const orderId = (result[0].maxId || 0) + 1;
     const orderDate = new Date().toISOString().slice(0, 10);
+    const status = "pending";
 
     const orderSql = `
-      INSERT INTO orders (order_id, buyer_id, seller_id, address_id, order_date, total_price, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      INSERT INTO orders (order_id, buyer_id, seller_id, address_id, order_date, total_price, status, product_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    db.query(orderSql, [orderId, buyer_id, seller_id, address_id, orderDate, total_price], (err, result) => {
+    db.query(orderSql, [orderId, buyer_id, seller_id, address_id, orderDate, total_price, status, product_id], (err, result) => {
       if (err) {
         console.error("Create Order Error:", err);
         console.error("Error Code:", err.code);
@@ -410,9 +428,15 @@ app.get("/api/orders/my-orders", (req, res) => {
   if (!userId) return res.status(400).json({ error: "User ID gerekli" });
 
   const sql = `
-    SELECT o.*, u.first_name as seller_name, u.last_name as seller_lastname 
+    SELECT 
+      o.*, 
+      u.first_name as seller_name, 
+      u.last_name as seller_lastname,
+      p.photo,
+      p.product_id
     FROM orders o
     JOIN users u ON o.seller_id = u.user_id
+    JOIN product p ON p.product_id = o.product_id
     WHERE o.buyer_id = ?
     ORDER BY o.order_date DESC
   `;
@@ -816,7 +840,196 @@ app.post("/api/products/:id/tags", (req, res) => {
   res.json({ message: "Tags updated" });
 });
 
-//Listeleme endpoint’ine bunu ekliyoruz:
+// Ürün Sil
+// Ürün Sil (Cascade işlemini backend yapar)
+app.delete("/api/products/:id", (req, res) => {
+  const productId = req.params.id;
+
+  // 1) Yorumları sil
+  const deleteReviews = "DELETE FROM review WHERE product_id = ?";
+
+  db.query(deleteReviews, [productId], (err) => {
+    if (err) {
+      console.error("Review delete error:", err);
+      return res.status(500).json({ error: "Yorumlar silinemedi." });
+    }
+
+    // 2) Tag bağlantılarını sil (varsa)
+    const deleteTags = "DELETE FROM product_tags WHERE product_id = ?";
+    db.query(deleteTags, [productId], (err2) => {
+      if (err2) {
+        console.error("ProductTags delete error:", err2);
+        return res.status(500).json({ error: "Ürün tag bağlantıları silinemedi." });
+      }
+
+      // 3) Artık ürünü güvenle silebiliriz
+      const deleteProduct = "DELETE FROM product WHERE product_id = ?";
+      db.query(deleteProduct, [productId], (err3, result) => {
+        if (err3) {
+          console.error("Delete Product Error:", err3);
+          return res.status(500).json({ error: "Ürün silinemedi." });
+        }
+
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ error: "Ürün bulunamadı." });
+        }
+
+        res.json({ message: "Ürün başarıyla silindi." });
+      });
+    });
+  });
+});
+// ürünü düzenlemek için
+app.put("/api/products/:id", (req, res) => {
+  const productId = req.params.id;
+  const { name, description, price, quantity, photo } = req.body;
+
+  const sql = `
+    UPDATE product 
+    SET name=?, description=?, price=?, quantity=?, photo=? 
+    WHERE product_id=?
+  `;
+
+  db.query(sql, [name, description, price, quantity, photo, productId], (err) => {
+    if (err) {
+      console.error("Product update error:", err);
+      return res.status(500).json({ error: "Ürün güncellenemedi" });
+    }
+
+    res.json({ message: "Güncelleme başarılı" });
+  });
+});
+// Satıcı başvuruları listeleme - DÜZELTME
+app.get("/api/admin/seller-applications", (req, res) => {
+  const sql = `
+    SELECT 
+      sa.application_id,
+      sa.user_id,
+      sa.is_seller_approved,
+      u.first_name,
+      u.last_name,
+      u.email
+    FROM seller_applications sa
+    JOIN users u ON sa.user_id = u.user_id
+    ORDER BY sa.application_id DESC
+  `;
+  // ✅ WHERE koşulunu kaldırdık, şimdi hem 0 hem 1 olanları getirir
+
+  db.query(sql, (err, result) => {
+    if (err) return res.status(500).json({ error: "Başvurular alınamadı" });
+    res.json(result);
+  });
+});
+
+// başvuru onaylama endpoint
+
+app.put("/api/admin/seller-applications/:id/approve", (req, res) => {
+  const id = req.params.id;
+
+  const approveApp = `
+    UPDATE seller_applications SET is_seller_approved = 1 
+    WHERE application_id = ?
+  `;
+
+  db.query(approveApp, [id], (err) => {
+    if (err) return res.status(500).json({ error: "Başvuru güncellenemedi" });
+
+    const approveUser = `
+      UPDATE users SET is_seller_approved = 1 
+      WHERE user_id = (SELECT user_id FROM seller_applications WHERE application_id = ?)
+    `;
+
+    db.query(approveUser, [id], (err2) => {
+      if (err2) return res.status(500).json({ error: "Kullanıcı güncellenemedi" });
+
+      res.json({ message: "Satıcı onaylandı!" });
+    });
+  });
+});
+// Onayı kaldırma endpoint
+app.put("/api/admin/seller-applications/:id/unapprove", (req, res) => {
+  const id = req.params.id;
+
+  const unapproveApp = `
+    UPDATE seller_applications SET is_seller_approved = 0 
+    WHERE application_id = ?
+  `;
+
+  db.query(unapproveApp, [id], (err) => {
+    if (err) return res.status(500).json({ error: "Başvuru güncellenemedi" });
+
+    const unapproveUser = `
+      UPDATE users SET is_seller_approved = 0 
+      WHERE user_id = (SELECT user_id FROM seller_applications WHERE application_id = ?)
+    `;
+
+    db.query(unapproveUser, [id], (err2) => {
+      if (err2) return res.status(500).json({ error: "Kullanıcı güncellenemedi" });
+
+      res.json({ message: "Satıcı onayı kaldırıldı!" });
+    });
+  });
+});
+
+// Başvuru red endpoint
+app.delete("/api/admin/seller-applications/:id", (req, res) => {
+  db.query("DELETE FROM seller_applications WHERE application_id=?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Silinemedi" });
+    res.json({ message: "Başvuru reddedildi" });
+  });
+});
 
 
+// Seller application insert
 
+// 🟢 Satıcı başvurusu oluşturma
+app.post("/api/seller-applications", (req, res) => {
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id gerekli" });
+  }
+
+  db.query(
+    "INSERT INTO seller_applications (user_id, is_seller_approved) VALUES (?, 0)",
+    [user_id],
+    (err, result) => {
+      if (err) {
+        console.error("Satıcı başvuru hatası:", err);
+        return res.status(500).json({ error: "Başvuru oluşturulamadı" });
+      }
+
+      res.json({
+        success: true,
+        message: "Başvuru oluşturuldu",
+        application_id: result.insertId
+      });
+    }
+  );
+});
+
+// Sipariş ürünlerini getir (product tablosuyla birlikte)
+app.get("/api/orders/:orderId/items", (req, res) => {
+  const orderId = req.params.orderId;
+
+  const sql = `
+    SELECT 
+      p.product_id,
+      p.name AS product_name,
+      p.photo,
+      p.price,
+      1 AS quantity
+    FROM orders o
+    JOIN product p ON p.product_id = o.product_id
+    WHERE o.order_id = ?
+  `;
+
+  db.query(sql, [orderId], (err, results) => {
+    if (err) {
+      console.error("Order items fetch error:", err);
+      return res.status(500).json({ error: "Sipariş içeriği alınamadı" });
+    }
+
+    res.json(results);
+  });
+});

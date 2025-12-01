@@ -71,39 +71,39 @@ function HomePage() {
   };
 
   const loadProducts = async (address = null) => {
-  try {
-    const filters = {};
-    
-    console.log("🔍 Filters:", filters); // EKLE
-    console.log("📍 Address:", address); // EKLE
-    console.log("🏷️ Selected Tags:", selectedTags); // EKLE
+    try {
+      const filters = {};
 
-    if (selectedTags.length > 0) {
-      filters.tag = selectedTags.join(",");
+      console.log("🔍 Filters:", filters); // EKLE
+      console.log("📍 Address:", address); // EKLE
+      console.log("🏷️ Selected Tags:", selectedTags); // EKLE
+
+      if (selectedTags.length > 0) {
+        filters.tag = selectedTags.join(",");
+      }
+
+      if (userData?.role === "seller" && userData?.is_seller_approved) {
+        filters.seller_id = userData.user_id;
+      }
+
+      if (address && address.latitude && address.longitude) {
+        filters.user_lat = address.latitude;
+        filters.user_lon = address.longitude;
+      }
+
+      console.log("📤 API'ye gönderilen filters:", filters); // EKLE
+
+      const result = await api.products.list(filters);
+
+      console.log("📥 API'den dönen sonuç:", result); // EKLE
+      console.log("📊 Ürün sayısı:", result?.length); // EKLE
+
+      setProducts(result);
+    } catch (err) {
+      console.error("❌ Ürün hata:", err);
+      setProducts([]);
     }
-
-    if (userData?.role === "seller" && userData?.is_seller_approved) {
-      filters.seller_id = userData.user_id;
-    }
-
-    if (address && address.latitude && address.longitude) {
-      filters.user_lat = address.latitude;
-      filters.user_lon = address.longitude;
-    }
-
-    console.log("📤 API'ye gönderilen filters:", filters); // EKLE
-
-    const result = await api.products.list(filters);
-    
-    console.log("📥 API'den dönen sonuç:", result); // EKLE
-    console.log("📊 Ürün sayısı:", result?.length); // EKLE
-    
-    setProducts(result);
-  } catch (err) {
-    console.error("❌ Ürün hata:", err);
-    setProducts([]);
-  }
-};
+  };
 
   const loadSellers = async () => {
     try {
@@ -304,6 +304,12 @@ function HomePage() {
         {/* Products Grid/List */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
+            {/* Onay bekleyen satıcı mesajı */}
+            {userData?.role === "seller" && userData?.is_seller_approved === 0 && (
+              <div className="bg-yellow-200 text-yellow-800 p-4 rounded-lg mb-4">
+                Admin satıcı kaydınızı onaylamayı bekliyor.
+              </div>
+            )}
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-bold text-gray-800">
                 {userData?.role === "seller" && userData?.is_seller_approved ? "🍽️ Yemeklerim" : "🍽️ Tüm Yemekler"}

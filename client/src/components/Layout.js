@@ -68,7 +68,18 @@ function Layout({ children }) {
                         </button>
 
                         <div className="hidden md:flex items-center space-x-4">
-                            {userData?.role === "seller" && userData?.is_seller_approved ? (
+                            {userData?.role === "admin" ? (
+                                // 🔥 Admin için sadece Admin Panel butonu
+                                <button
+                                    onClick={() => navigate("/admin")}
+                                    className="btn-primary px-4 py-2 text-sm"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span>⚙️</span>
+                                        <span>Admin Panel</span>
+                                    </span>
+                                </button>
+                            ) : userData?.role === "seller" && userData?.is_seller_approved ? (
                                 <>
                                     <button
                                         onClick={() => navigate("/sell")}
@@ -111,9 +122,15 @@ function Layout({ children }) {
                                     )}
                                 </>
                             )}
-                            <button onClick={() => navigate("/messages")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
-                                💬 Mesajlar
-                            </button>
+
+                            {/* Mesajlar - Sadece admin değilse göster */}
+                            {userData?.role !== "admin" && (
+                                <button onClick={() => navigate("/messages")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
+                                    💬 Mesajlar
+                                </button>
+                            )}
+
+                            {/* Profil - Herkeste göster */}
                             <button onClick={() => navigate("/profile")} className="px-4 py-2 text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
                                 👤 Profil
                             </button>

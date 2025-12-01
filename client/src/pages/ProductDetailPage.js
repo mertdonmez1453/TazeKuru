@@ -12,6 +12,16 @@ function ProductDetailPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    quantity: "",
+    photo: ""
+  });
+  
+
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -20,6 +30,19 @@ function ProductDetailPage() {
     }
     loadData();
   }, [id]);
+
+  // ürün düzenleme fonksiyonu
+  const handleEditSave = async () => {
+  try {
+    await api.products.update(product.product_id, editForm);
+    alert("Ürün güncellendi!");
+    setEditMode(false);
+    loadData(); // güncel veriyi tekrar çek
+  } catch (err) {
+    alert("Güncellenemedi: " + err.message);
+  }
+};
+
 
   const loadData = async () => {
     try {
@@ -43,6 +66,20 @@ function ProductDetailPage() {
       setLoading(false);
     }
   };
+
+  // ÜRün düzenleme
+  const handleDeleteProduct = async () => {
+    if (!window.confirm("Bu ürünü silmek istediğine emin misin?")) return;
+
+    try {
+      await api.products.delete(product.product_id);
+      alert("Ürün başarıyla silindi!");
+      navigate("/home");
+    } catch (error) {
+      alert("Ürün silinemedi: " + error.message);
+    }
+  };
+
 
   const handleAddToCart = async () => {
     if (!userData || userData.role !== "customer") {
@@ -246,6 +283,35 @@ function ProductDetailPage() {
 
               {/* Butonlar */}
               <div className="space-y-3">
+                {/* 🔥 SATICI İSE DÜZENLE / SİL BUTONLARI */}
+                {userData?.role === "seller" && userData.user_id === product.seller_id && (
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setEditForm({
+                          name: product.name,
+                          description: product.description,
+                          price: product.price,
+                          quantity: product.quantity,
+                          photo: product.photo
+                        });
+                        setEditMode(true);
+                      }}
+                      className="w-full bg-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-emerald-700 transition"
+                    >
+                      ✏️ Ürünü Düzenle
+                    </button>
+
+
+                    <button
+                      onClick={handleDeleteProduct}
+                      className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-700 transition"
+                    >
+                      🗑️ Ürünü Sil
+                    </button>
+                  </div>
+                )}
+
                 {userData?.role === "customer" && (
                   <>
                     <button
@@ -264,7 +330,7 @@ function ProductDetailPage() {
                     </button>
                   </>
                 )}
-                {userData && (
+                {userData?.role === "customer" && userData.user_id !== product.seller_id && (
                   <button
                     onClick={handleMessage}
                     className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -275,6 +341,69 @@ function ProductDetailPage() {
               </div>
             </div>
           </div>
+          {editMode && (
+            <div className="bg-orange-50 border border-orange-300 p-6 rounded-xl mb-6">
+              <h2 className="text-2xl font-bold mb-4">Ürünü Düzenle</h2>
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full border p-2 rounded"
+                  placeholder="Ürün adı"
+                />
+
+                <textarea
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full border p-2 rounded"
+                  placeholder="Açıklama"
+                />
+
+                <input
+                  type="number"
+                  value={editForm.price}
+                  onChange={e => setEditForm({ ...editForm, price: e.target.value })}
+                  className="w-full border p-2 rounded"
+                  placeholder="Fiyat"
+                />
+
+                <input
+                  type="number"
+                  value={editForm.quantity}
+                  onChange={e => setEditForm({ ...editForm, quantity: e.target.value })}
+                  className="w-full border p-2 rounded"
+                  placeholder="Stok miktarı"
+                />
+
+                <input
+                  type="text"
+                  value={editForm.photo}
+                  onChange={e => setEditForm({ ...editForm, photo: e.target.value })}
+                  className="w-full border p-2 rounded"
+                  placeholder="Fotoğraf URL"
+                />
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleEditSave}
+                    className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700"
+                  >
+                    Kaydet
+                  </button>
+
+                  <button
+                    onClick={() => setEditMode(false)}
+                    className="bg-gray-400 text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-500"
+                  >
+                    İptal
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           {/* Yorumlar Bölümü */}
           <div className="border-t border-gray-200 p-8">

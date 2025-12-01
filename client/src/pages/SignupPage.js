@@ -34,7 +34,8 @@ function SignupPage() {
     }
 
     try {
-      await api.auth.signup({
+      // 1️⃣ Kullanıcıyı oluştur
+      const signupResponse = await api.auth.signup({
         email: formData.email,
         password: formData.password,
         first_name: formData.firstName,
@@ -42,6 +43,11 @@ function SignupPage() {
         phone_number: formData.phoneNumber,
         role: formData.role
       });
+
+      // 2️⃣ Eğer satıcı seçildiyse başvuru oluştur
+      if (formData.role === "seller" && signupResponse.user_id) {
+        await api.sellerApplications.apply(signupResponse.user_id);
+      }
 
       alert("✅ Kayıt başarılı! Giriş yapabilirsiniz.");
       navigate("/login");

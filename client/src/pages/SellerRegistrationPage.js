@@ -41,6 +41,12 @@ function SellerRegistrationPage() {
         role: "seller"
       });
 
+      // 🔥 Başvuru oluştur
+      await api.sellerApplications.apply(userData.user_id);
+
+
+      alert("Satıcı başvurunuz alındı! Admin onayladıktan sonra aktif olacaktır.");
+
       // Local storage güncelle
       const updatedUser = { ...userData, role: "seller", phone_number: formData.phone };
       localStorage.setItem('user', JSON.stringify(updatedUser));
