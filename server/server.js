@@ -852,7 +852,7 @@ app.delete("/api/products/:id", (req, res) => {
       return res.status(500).json({ error: "Yorumlar silinemedi." });
     }
 
-    // 2) Tag bağlantılarını sil (varsa)
+    // 2) Tag bağlantılarını sil
     const deleteTags = "DELETE FROM product_tags WHERE product_id = ?";
     db.query(deleteTags, [productId], (err2) => {
       if (err2) {
@@ -868,7 +868,7 @@ app.delete("/api/products/:id", (req, res) => {
           return res.status(500).json({ error: "Mesajlar silinemedi." });
         }
 
-        // 4) Artık ürünü güvenle silebiliriz
+        // 4) Artık ürünü silebiliriz
         const deleteProduct = "DELETE FROM product WHERE product_id = ?";
         db.query(deleteProduct, [productId], (err4, result) => {
           if (err4) {
@@ -886,6 +886,7 @@ app.delete("/api/products/:id", (req, res) => {
     });
   });
 });
+
 
 // ürünü düzenlemek için
 app.put("/api/products/:id", (req, res) => {
