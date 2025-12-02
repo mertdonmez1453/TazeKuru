@@ -841,13 +841,11 @@ app.post("/api/products/:id/tags", (req, res) => {
 });
 
 // Ürün Sil
-// Ürün Sil (Cascade işlemini backend yapar)
 app.delete("/api/products/:id", (req, res) => {
   const productId = req.params.id;
 
   // 1) Yorumları sil
   const deleteReviews = "DELETE FROM review WHERE product_id = ?";
-
   db.query(deleteReviews, [productId], (err) => {
     if (err) {
       console.error("Review delete error:", err);
@@ -862,23 +860,33 @@ app.delete("/api/products/:id", (req, res) => {
         return res.status(500).json({ error: "Ürün tag bağlantıları silinemedi." });
       }
 
-      // 3) Artık ürünü güvenle silebiliriz
-      const deleteProduct = "DELETE FROM product WHERE product_id = ?";
-      db.query(deleteProduct, [productId], (err3, result) => {
+      // 3) Mesajları sil
+      const deleteMessages = "DELETE FROM messages WHERE product_id = ?";
+      db.query(deleteMessages, [productId], (err3) => {
         if (err3) {
-          console.error("Delete Product Error:", err3);
-          return res.status(500).json({ error: "Ürün silinemedi." });
+          console.error("Messages delete error:", err3);
+          return res.status(500).json({ error: "Mesajlar silinemedi." });
         }
 
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ error: "Ürün bulunamadı." });
-        }
+        // 4) Artık ürünü güvenle silebiliriz
+        const deleteProduct = "DELETE FROM product WHERE product_id = ?";
+        db.query(deleteProduct, [productId], (err4, result) => {
+          if (err4) {
+            console.error("Delete Product Error:", err4);
+            return res.status(500).json({ error: "Ürün silinemedi." });
+          }
 
-        res.json({ message: "Ürün başarıyla silindi." });
+          if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Ürün bulunamadı." });
+          }
+
+          res.json({ message: "Ürün başarıyla silindi." });
+        });
       });
     });
   });
 });
+
 // ürünü düzenlemek için
 app.put("/api/products/:id", (req, res) => {
   const productId = req.params.id;
